@@ -79,6 +79,10 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    fn span_from(&self, start: Cursor) -> Span {
+        Span::new(start.offset, self.cursor.offset, start.line, start.column)
+    }
+
     fn parse_next_token(&mut self) -> Token {
         match self.peek() {
             Some(b' ' | b'\n') => {
@@ -86,26 +90,25 @@ impl<'a> Lexer<'a> {
                 self.parse_next_token()
             }
             Some(b'a'..=b'z' | b'A'..=b'Z' | b'_') => self.lex_identifier(),
+            Some(b'0'..=b'9') => self.lex_integer(),
             Some(unexpected) => panic!("Unexpected char: '{}'", unexpected as char),
             None => self.lex_eof(),
         }
     }
 
     fn lex_eof(&self) -> Token {
-        let offset = self.cursor.offset;
-
-        let line = self.cursor.line;
-        let column = self.cursor.column;
-
-        let span = Span::new(offset, offset, line, column);
+        let span = Span::new(
+            self.cursor.offset,
+            self.cursor.offset,
+            self.cursor.line,
+            self.cursor.column,
+        );
         return Token::new(TokenKind::Eof, span);
     }
 
     fn lex_identifier(&mut self) -> Token {
         let mut ident = String::new();
-        let start = self.cursor.offset;
-        let start_line = self.cursor.line;
-        let start_column = self.cursor.column;
+        let start = self.cursor.clone();
 
         while let Some(ch) = self.peek()
             && (ch.is_ascii_alphanumeric() || ch == b'_')
@@ -114,8 +117,50 @@ impl<'a> Lexer<'a> {
             self.advance();
         }
 
-        let span = Span::new(start, self.cursor.offset, start_line, start_column);
+        let span = self.span_from(start);
 
-        Token::new(TokenKind::Identifier(ident), span)
+        // Attempt to classify the identifier as a language keyword.
+        // If it is not a keyword, fall back to treating it as a standard identifier.
+        let token_kind =
+            TokenKind::map_keyword(&ident).unwrap_or_else(|| TokenKind::Identifier(ident));
+
+        Token::new(token_kind, span)
+    }
+
+    fn lex_integer(&mut self) -> Token {
+        let mut value = String::new();
+        let start = self.cursor.clone();
+
+        while let Some(ch) = self.peek()
+            && (ch.is_ascii_digit())
+        {
+            value.push(ch as char);
+            self.advance();
+        }
+
+        if let Some(ch) = self.peek()
+            && ch == b'.'
+        {
+            return self.lex_float(value.as_str(), start);
+        }
+
+        let span = self.span_from(start);
+        Token::new(TokenKind::IntLiteral(value), span)
+    }
+
+    fn lex_float(&mut self, pre: &str, start: Cursor) -> Token {
+        let mut value = String::from(pre);
+        value.push('.');
+        self.advance();
+
+        while let Some(ch) = self.peek()
+            && (ch.is_ascii_digit())
+        {
+            value.push(ch as char);
+            self.advance();
+        }
+
+        let span = self.span_from(start);
+        Token::new(TokenKind::FloatLiteral(value), span)
     }
 }

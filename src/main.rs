@@ -4,7 +4,7 @@ pub mod tokenizer;
 use tokenizer::lexer::Lexer;
 
 fn main() {
-    let str = "ident ident2";
+    let str = "let const ident ident2 349 5450 544.220 39.33";
 
     let lexer = Lexer::new(str.as_bytes());
 
