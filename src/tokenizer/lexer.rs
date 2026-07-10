@@ -85,13 +85,13 @@ impl<'a> Lexer<'a> {
                 self.advance();
                 self.parse_next_token()
             }
-            Some(b'a'..=b'z' | b'A'..=b'Z' | b'_') => self.parse_identifier(),
+            Some(b'a'..=b'z' | b'A'..=b'Z' | b'_') => self.lex_identifier(),
             Some(unexpected) => panic!("Unexpected char: '{}'", unexpected as char),
-            None => self.parse_eof(),
+            None => self.lex_eof(),
         }
     }
 
-    fn parse_eof(&self) -> Token {
+    fn lex_eof(&self) -> Token {
         let offset = self.cursor.offset;
 
         let line = self.cursor.line;
@@ -101,7 +101,7 @@ impl<'a> Lexer<'a> {
         return Token::new(TokenKind::Eof, span);
     }
 
-    fn parse_identifier(&mut self) -> Token {
+    fn lex_identifier(&mut self) -> Token {
         let mut ident = String::new();
         let start = self.cursor.offset;
         let start_line = self.cursor.line;
