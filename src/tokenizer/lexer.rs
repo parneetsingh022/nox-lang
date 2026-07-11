@@ -89,6 +89,10 @@ impl<'a> Iterator for Lexer<'a> {
 }
 
 impl<'a> Lexer<'a> {
+    /// Creates a lexer for the given source text.
+    ///
+    /// `filename` is used only for diagnostics, so errors can point back to the
+    /// source file they came from.
     pub fn new(source: &'a str, filename: &'a str) -> Self {
         Self {
             source,
@@ -99,6 +103,8 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    /// takes all lexer errors collected so far, leaving the lexer with an empty
+    /// error list.
     pub fn take_errors(&mut self) -> Vec<LexerError> {
         std::mem::take(&mut self.errors)
     }
@@ -117,10 +123,17 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    /// Creates a span from `start` to the lexer's current cursor position.
+    ///
+    /// The start position is usually captured before consuming a token, while the
+    /// current cursor position marks the end of that token.
     fn span_from(&self, start: Cursor) -> Span {
         Span::new(start.offset, self.cursor.offset, start.line, start.column)
     }
 
+    /// Consumes bytes while `predicate` returns true and returns the consumed text.
+    ///
+    /// The returned string slice points into the original source.
     fn read_while(&mut self, predicate: impl Fn(u8) -> bool) -> &'a str {
         let start = self.cursor.clone();
         while let Some(ch) = self.peek()
@@ -146,6 +159,9 @@ impl<'a> Lexer<'a> {
         self.errors.push(err.into());
     }
 
+    /// Emits an unexpected-character error and returns an error token for it.
+    ///
+    /// The invalid byte is consumed so lexing can continue after the error.
     fn emit_unexpected_char(&mut self, start: Cursor, ch: u8) -> Token<'a> {
         self.advance();
 
@@ -160,7 +176,13 @@ impl<'a> Lexer<'a> {
         Token::new(TokenKind::Unexpected, span)
     }
 
+    /// Emits an invalid numeric suffix error and returns an error token.
+    ///
+    /// This consumes the full suffix so input like `123abc` is reported as one
+    /// invalid token instead of separate `123` and `abc` tokens.
     fn emit_invalid_numeric_suffix(&mut self, start: Cursor) -> Token<'a> {
+        // Consume the full suffix so `123abc` becomes one error token,
+        // not an integer token followed by an identifier token.
         self.read_while(is_ident_continue);
 
         let span = self.span_from(start.clone());
@@ -173,6 +195,9 @@ impl<'a> Lexer<'a> {
         Token::new(TokenKind::Unexpected, span)
     }
 
+    /// Emits an incomplete-float error and returns an error token.
+    ///
+    /// This is used for numbers ending with a decimal point, such as `123.`.
     fn emit_incomplete_float(&mut self, start: Cursor) -> Token<'a> {
         let span = self.span_from(start.clone());
         let source_span = span.into();
@@ -182,7 +207,7 @@ impl<'a> Lexer<'a> {
             src: self.named_source.clone(),
 
             suggestion: source_span,
-            // span.end-1 to ignore `.`
+            // `span.end - 1` removes the trailing `.` from the suggestion value.
             val: self.source[span.start..span.end - 1].to_string(),
         };
 
@@ -215,14 +240,19 @@ impl<'a> Lexer<'a> {
         Token::new(token_kind, span)
     }
 
+    /// Lexes an integer or floating-point number.
+    ///
+    /// If the number is followed by a `.`, lexing continues as a float.
     fn lex_number(&mut self) -> Token<'a> {
         let start = self.cursor.clone();
         let value = self.read_while(|ch| ch.is_ascii_digit());
 
+        // A `.` after digits means this number may be a float.
         if self.peek() == Some(b'.') {
             return self.lex_float(start);
         }
 
+        // Identifiers cannot be attached directly to number literals.
         if let Some(ch) = self.peek()
             && is_ident_start(ch)
         {
@@ -232,8 +262,14 @@ impl<'a> Lexer<'a> {
         Token::new(TokenKind::IntLiteral(value), span)
     }
 
+    /// Continues lexing a floating-point number after the integer part.
+    ///
+    /// This assumes the current byte is `.` and consumes it before reading the
+    /// fractional digits.
     fn lex_float(&mut self, start: Cursor) -> Token<'a> {
-        self.advance(); // consume '.'
+        // We enter this function only after seeing `.`, so consume it first.
+        self.advance();
+
         let rest = self.read_while(|ch| ch.is_ascii_digit());
 
         if rest.is_empty() {
