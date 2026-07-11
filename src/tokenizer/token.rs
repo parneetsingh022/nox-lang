@@ -2,17 +2,14 @@ use crate::diagnostic::Span;
 use phf::phf_map;
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum TokenKind {
-    Identifier(String),
+pub enum TokenKind<'a> {
+    Identifier(&'a str),
     // Keywords
     Let,
     Const,
 
-    IntLiteral(String),
-    FloatLiteral(String),
-
-    // End of file
-    Eof,
+    IntLiteral(&'a str),
+    FloatLiteral(&'a str),
 }
 
 static KEYWORDS: phf::Map<&'static str, TokenKind> = phf_map! {
@@ -20,8 +17,8 @@ static KEYWORDS: phf::Map<&'static str, TokenKind> = phf_map! {
     "const" => TokenKind::Const,
 };
 
-impl TokenKind {
-    pub fn map_keyword(keyword: &str) -> Option<TokenKind> {
+impl<'a> TokenKind<'a> {
+    pub fn map_keyword(keyword: &str) -> Option<TokenKind<'_>> {
         match KEYWORDS.get(keyword) {
             Some(keyword_type) => Some(keyword_type.clone()),
             _ => None,
@@ -30,13 +27,13 @@ impl TokenKind {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Token {
-    pub kind: TokenKind,
+pub struct Token<'a> {
+    pub kind: TokenKind<'a>,
     pub span: Span,
 }
 
-impl Token {
-    pub fn new(kind: TokenKind, span: Span) -> Self {
+impl<'a> Token<'a> {
+    pub fn new(kind: TokenKind<'a>, span: Span) -> Self {
         Self { kind, span }
     }
 }

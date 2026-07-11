@@ -3,6 +3,11 @@ use crate::{
     tokenizer::{Token, TokenKind},
 };
 
+/// Returns true if given character is a whitespace.
+pub fn is_whitespace(ch: u8) -> bool {
+    ch.is_ascii_whitespace()
+}
+
 /// Tracks current position for lexer in source file
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Cursor {
@@ -40,37 +45,38 @@ impl Cursor {
 }
 
 pub struct Lexer<'a> {
-    source: &'a [u8],
+    source: &'a str,
+    chars: &'a [u8],
     cursor: Cursor,
 }
 
 impl<'a> Iterator for Lexer<'a> {
-    type Item = Token;
+    type Item = Token<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        Some(self.parse_next_token())
+        if self.is_eof() {
+            return None;
+        }
+
+        self.lex_next_token()
     }
 }
 
 impl<'a> Lexer<'a> {
-    pub fn new(source: &'a [u8]) -> Self {
+    pub fn new(source: &'a str) -> Self {
         Self {
-            source,
+            source: source,
+            chars: source.as_bytes(),
             cursor: Cursor::default(),
         }
     }
 
-    fn at_eof(&self) -> bool {
-        self.cursor.offset >= self.source.len()
+    fn is_eof(&self) -> bool {
+        self.cursor.offset >= self.chars.len()
     }
 
-    fn peek(&mut self) -> Option<u8> {
-        if self.at_eof() {
-            return None;
-        }
-
-        let ch = self.source[self.cursor.offset];
-        Some(ch)
+    fn peek(&self) -> Option<u8> {
+        self.chars.get(self.cursor.offset).copied()
     }
 
     fn advance(&mut self) {
@@ -83,40 +89,43 @@ impl<'a> Lexer<'a> {
         Span::new(start.offset, self.cursor.offset, start.line, start.column)
     }
 
-    fn parse_next_token(&mut self) -> Token {
-        match self.peek() {
-            Some(b' ' | b'\n') => {
-                self.advance();
-                self.parse_next_token()
-            }
-            Some(b'a'..=b'z' | b'A'..=b'Z' | b'_') => self.lex_identifier(),
-            Some(b'0'..=b'9') => self.lex_integer(),
-            Some(unexpected) => panic!("Unexpected char: '{}'", unexpected as char),
-            None => self.lex_eof(),
-        }
-    }
-
-    fn lex_eof(&self) -> Token {
-        let span = Span::new(
-            self.cursor.offset,
-            self.cursor.offset,
-            self.cursor.line,
-            self.cursor.column,
-        );
-        return Token::new(TokenKind::Eof, span);
-    }
-
-    fn lex_identifier(&mut self) -> Token {
-        let mut ident = String::new();
+    fn read_while(&mut self, predicate: impl Fn(u8) -> bool) -> &'a str {
         let start = self.cursor.clone();
-
         while let Some(ch) = self.peek()
-            && (ch.is_ascii_alphanumeric() || ch == b'_')
+            && predicate(ch)
         {
-            ident.push(ch as char);
             self.advance();
         }
 
+        let span = self.span_from(start);
+
+        return &self.source[span.start..span.end];
+    }
+
+    fn skip_whitespace(&mut self) {
+        while let Some(ch) = self.peek()
+            && is_whitespace(ch)
+        {
+            self.advance();
+        }
+    }
+
+    fn lex_next_token(&mut self) -> Option<Token<'a>> {
+        self.skip_whitespace();
+
+        match self.peek() {
+            Some(b'a'..=b'z' | b'A'..=b'Z' | b'_') => Some(self.lex_identifier()),
+            Some(b'0'..=b'9') => Some(self.lex_integer()),
+            Some(_) => {
+                todo!("handle unexpected characters");
+            }
+            None => None,
+        }
+    }
+
+    fn lex_identifier(&mut self) -> Token<'a> {
+        let start = self.cursor.clone();
+        let ident = self.read_while(|ch| ch.is_ascii_alphanumeric() || ch == b'_');
         let span = self.span_from(start);
 
         // Attempt to classify the identifier as a language keyword.
@@ -127,40 +136,25 @@ impl<'a> Lexer<'a> {
         Token::new(token_kind, span)
     }
 
-    fn lex_integer(&mut self) -> Token {
-        let mut value = String::new();
+    fn lex_integer(&mut self) -> Token<'a> {
         let start = self.cursor.clone();
+        let value = self.read_while(|ch| ch.is_ascii_digit());
 
-        while let Some(ch) = self.peek()
-            && (ch.is_ascii_digit())
-        {
-            value.push(ch as char);
-            self.advance();
-        }
-
-        if let Some(ch) = self.peek()
-            && ch == b'.'
-        {
-            return self.lex_float(value.as_str(), start);
+        if self.peek() == Some(b'.') {
+            return self.lex_float(start);
         }
 
         let span = self.span_from(start);
         Token::new(TokenKind::IntLiteral(value), span)
     }
 
-    fn lex_float(&mut self, pre: &str, start: Cursor) -> Token {
-        let mut value = String::from(pre);
-        value.push('.');
-        self.advance();
+    fn lex_float(&mut self, start: Cursor) -> Token<'a> {
+        self.advance(); // consume '.'
+        self.read_while(|ch| ch.is_ascii_digit());
 
-        while let Some(ch) = self.peek()
-            && (ch.is_ascii_digit())
-        {
-            value.push(ch as char);
-            self.advance();
-        }
+        let span = self.span_from(start.clone());
+        let value = &self.source[span.start..span.end];
 
-        let span = self.span_from(start);
         Token::new(TokenKind::FloatLiteral(value), span)
     }
 }
