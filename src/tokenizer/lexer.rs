@@ -161,9 +161,17 @@ impl<'a> Lexer<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tokenizer::Keyword;
 
     fn assert_eof<'a>(lexer: &mut Lexer<'a>) {
         assert_eq!(lexer.next(), None);
+    }
+
+    fn assert_keyword(code: &str, expected: Keyword) {
+        let mut lexer = Lexer::new(code);
+        let token = lexer.next().expect("Expected a token");
+        assert_eq!(token.kind, TokenKind::Keyword(expected));
+        assert!(lexer.next().is_none());
     }
 
     #[test]
@@ -184,14 +192,8 @@ mod tests {
 
     #[test]
     fn lexer_recognizes_keywords() {
-        let test_cases = vec![("let", TokenKind::Let), ("const", TokenKind::Const)];
-
-        for (expr, kind) in test_cases {
-            let mut lexer = Lexer::new(expr);
-            assert_eq!(lexer.next().unwrap().kind, kind);
-            // Eof must return None
-            assert_eof(&mut lexer);
-        }
+        assert_keyword("let", Keyword::Let);
+        assert_keyword("const", Keyword::Const);
     }
 
     #[test]
@@ -275,11 +277,14 @@ mod tests {
         let code = "let x 123 45.67 const";
         let mut lexer = Lexer::new(code);
 
-        assert_eq!(lexer.next().unwrap().kind, TokenKind::Let);
+        assert_eq!(lexer.next().unwrap().kind, TokenKind::Keyword(Keyword::Let));
         assert_eq!(lexer.next().unwrap().kind, TokenKind::Identifier("x"));
         assert_eq!(lexer.next().unwrap().kind, TokenKind::IntLiteral("123"));
         assert_eq!(lexer.next().unwrap().kind, TokenKind::FloatLiteral("45.67"));
-        assert_eq!(lexer.next().unwrap().kind, TokenKind::Const);
+        assert_eq!(
+            lexer.next().unwrap().kind,
+            TokenKind::Keyword(Keyword::Const)
+        );
         assert_eof(&mut lexer);
     }
 
