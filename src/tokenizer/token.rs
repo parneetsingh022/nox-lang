@@ -1,6 +1,11 @@
 use crate::diagnostic::Span;
 use phf::phf_map;
 
+static KEYWORDS: phf::Map<&'static str, TokenKind> = phf_map! {
+    "let"   => TokenKind::Let,
+    "const" => TokenKind::Const,
+};
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenKind<'a> {
     Identifier(&'a str),
@@ -11,11 +16,6 @@ pub enum TokenKind<'a> {
     IntLiteral(&'a str),
     FloatLiteral(&'a str),
 }
-
-static KEYWORDS: phf::Map<&'static str, TokenKind> = phf_map! {
-    "let"   => TokenKind::Let,
-    "const" => TokenKind::Const,
-};
 
 impl<'a> TokenKind<'a> {
     pub fn map_keyword(keyword: &str) -> Option<TokenKind<'_>> {
