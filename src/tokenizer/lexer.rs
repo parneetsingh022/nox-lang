@@ -157,3 +157,182 @@ impl<'a> Lexer<'a> {
         Token::new(TokenKind::FloatLiteral(value), span)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_eof<'a>(lexer: &mut Lexer<'a>) {
+        assert_eq!(lexer.next(), None);
+    }
+
+    #[test]
+    fn lexer_handles_empty_source() {
+        let mut lexer = Lexer::new("");
+        assert_eof(&mut lexer);
+    }
+
+    #[test]
+    fn lexer_recognizes_identifier() {
+        let code = "ident";
+        let mut lexer = Lexer::new(code);
+
+        assert_eq!(lexer.next().unwrap().kind, TokenKind::Identifier(code));
+        // Eof must return None
+        assert_eof(&mut lexer);
+    }
+
+    #[test]
+    fn lexer_recognizes_keywords() {
+        let test_cases = vec![("let", TokenKind::Let), ("const", TokenKind::Const)];
+
+        for (expr, kind) in test_cases {
+            let mut lexer = Lexer::new(expr);
+            assert_eq!(lexer.next().unwrap().kind, kind);
+            // Eof must return None
+            assert_eof(&mut lexer);
+        }
+    }
+
+    #[test]
+    fn lexer_recognizes_positive_integers() {
+        let code = "234 596 32 0";
+        let mut lexer = Lexer::new(code);
+
+        assert_eq!(lexer.next().unwrap().kind, TokenKind::IntLiteral("234"));
+        assert_eq!(lexer.next().unwrap().kind, TokenKind::IntLiteral("596"));
+        assert_eq!(lexer.next().unwrap().kind, TokenKind::IntLiteral("32"));
+        assert_eq!(lexer.next().unwrap().kind, TokenKind::IntLiteral("0"));
+        // Eof must return None
+        assert_eof(&mut lexer);
+    }
+
+    #[test]
+    fn lexer_recognizes_positive_floats() {
+        let code = "234.49 4549.5239 32.39 0.0";
+        let mut lexer = Lexer::new(code);
+
+        assert_eq!(
+            lexer.next().unwrap().kind,
+            TokenKind::FloatLiteral("234.49")
+        );
+        assert_eq!(
+            lexer.next().unwrap().kind,
+            TokenKind::FloatLiteral("4549.5239")
+        );
+        assert_eq!(lexer.next().unwrap().kind, TokenKind::FloatLiteral("32.39"));
+        assert_eq!(lexer.next().unwrap().kind, TokenKind::FloatLiteral("0.0"));
+        // Eof must return None
+        assert_eof(&mut lexer);
+    }
+
+    #[test]
+    fn lexer_tracks_position_correctly() {
+        let code = "let\n  x";
+        let mut lexer = Lexer::new(code);
+
+        let t1 = lexer.next().unwrap();
+        assert_eq!(t1.span.line, 1);
+        assert_eq!(t1.span.column, 1);
+
+        let t2 = lexer.next().unwrap();
+        assert_eq!(t2.span.line, 2);
+        assert_eq!(t2.span.column, 3); // Accounts for 2 spaces of indentation
+    }
+
+    #[test]
+    fn lexer_tracks_multiline_positions() {
+        let code = "a\n\nb";
+        let mut lexer = Lexer::new(code);
+
+        let t1 = lexer.next().unwrap();
+        assert_eq!(t1.span.line, 1);
+        assert_eq!(t1.span.column, 1);
+
+        let t2 = lexer.next().unwrap(); // Should be 'b'
+        assert_eq!(t2.span.line, 3);
+        assert_eq!(t2.span.column, 1);
+    }
+    #[test]
+    fn lexer_tracks_span_offsets() {
+        let code = "hello";
+        let mut lexer = Lexer::new(code);
+
+        let t = lexer.next().unwrap();
+        // 'hello' starts at 0 and ends at 5
+        assert_eq!(t.span.start, 0);
+        assert_eq!(t.span.end, 5);
+    }
+
+    #[test]
+    fn lexer_handles_whitespace_only_source() {
+        let mut lexer = Lexer::new("   \n\t\r\n  ");
+        assert_eof(&mut lexer);
+    }
+
+    #[test]
+    fn lexer_recognizes_mixed_tokens() {
+        let code = "let x 123 45.67 const";
+        let mut lexer = Lexer::new(code);
+
+        assert_eq!(lexer.next().unwrap().kind, TokenKind::Let);
+        assert_eq!(lexer.next().unwrap().kind, TokenKind::Identifier("x"));
+        assert_eq!(lexer.next().unwrap().kind, TokenKind::IntLiteral("123"));
+        assert_eq!(lexer.next().unwrap().kind, TokenKind::FloatLiteral("45.67"));
+        assert_eq!(lexer.next().unwrap().kind, TokenKind::Const);
+        assert_eof(&mut lexer);
+    }
+
+    #[test]
+    fn lexer_recognizes_identifier_variants() {
+        let code = "_abc abc123 letx const_value";
+        let mut lexer = Lexer::new(code);
+
+        assert_eq!(lexer.next().unwrap().kind, TokenKind::Identifier("_abc"));
+        assert_eq!(lexer.next().unwrap().kind, TokenKind::Identifier("abc123"));
+        assert_eq!(lexer.next().unwrap().kind, TokenKind::Identifier("letx"));
+        assert_eq!(
+            lexer.next().unwrap().kind,
+            TokenKind::Identifier("const_value")
+        );
+        assert_eof(&mut lexer);
+    }
+
+    #[test]
+    fn lexer_tracks_span_offsets_after_whitespace() {
+        let code = "  \n  hello";
+        let mut lexer = Lexer::new(code);
+
+        let t = lexer.next().unwrap();
+
+        assert_eq!(t.kind, TokenKind::Identifier("hello"));
+        assert_eq!(t.span.start, 5);
+        assert_eq!(t.span.end, 10);
+        assert_eq!(t.span.line, 2);
+        assert_eq!(t.span.column, 3);
+    }
+
+    #[test]
+    fn lexer_handles_tabs_before_token() {
+        let code = "\t\tabc";
+        let mut lexer = Lexer::new(code);
+
+        let t = lexer.next().unwrap();
+        assert_eq!(t.kind, TokenKind::Identifier("abc"));
+        assert_eq!(t.span.column, 3);
+    }
+
+    #[test]
+    fn lexer_handles_crlf_newlines() {
+        let code = "a\r\nb";
+        let mut lexer = Lexer::new(code);
+
+        let t1 = lexer.next().unwrap();
+        assert_eq!(t1.span.line, 1);
+        assert_eq!(t1.span.column, 1);
+
+        let t2 = lexer.next().unwrap();
+        assert_eq!(t2.span.line, 2);
+        assert_eq!(t2.span.column, 1);
+    }
+}
