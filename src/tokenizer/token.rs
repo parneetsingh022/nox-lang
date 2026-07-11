@@ -19,9 +19,7 @@ static KEYWORDS: phf::Map<&'static str, TokenKind> = phf_map! {
 
 impl<'a> TokenKind<'a> {
     pub fn map_keyword(keyword: &str) -> Option<TokenKind<'_>> {
-        KEYWORDS
-            .get(keyword)
-            .map(|keyword_type| keyword_type.clone())
+        KEYWORDS.get(keyword).cloned()
     }
 }
 
