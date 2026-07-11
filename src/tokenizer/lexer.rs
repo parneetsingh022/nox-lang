@@ -273,12 +273,17 @@ impl<'a> Lexer<'a> {
         let rest = self.read_while(|ch| ch.is_ascii_digit());
 
         if rest.is_empty() {
+            // A decimal point must be followed by at least one digit.
+            // For example, `123.` is treated as an incomplete float.
             return self.emit_incomplete_float(start);
         }
 
         if let Some(ch) = self.peek()
             && is_ident_start(ch)
         {
+            // A number cannot be immediately followed by an identifier-like suffix.
+            // For example, `123abc` or `123.45abc` should be reported as one
+            // invalid numeric token instead of separate number and identifier tokens.
             return self.emit_invalid_numeric_suffix(start);
         }
 
