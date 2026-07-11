@@ -65,7 +65,7 @@ impl<'a> Iterator for Lexer<'a> {
 impl<'a> Lexer<'a> {
     pub fn new(source: &'a str) -> Self {
         Self {
-            source: source,
+            source,
             chars: source.as_bytes(),
             cursor: Cursor::default(),
         }
@@ -99,7 +99,7 @@ impl<'a> Lexer<'a> {
 
         let span = self.span_from(start);
 
-        return &self.source[span.start..span.end];
+        &self.source[span.start..span.end]
     }
 
     fn skip_whitespace(&mut self) {
@@ -130,8 +130,7 @@ impl<'a> Lexer<'a> {
 
         // Attempt to classify the identifier as a language keyword.
         // If it is not a keyword, fall back to treating it as a standard identifier.
-        let token_kind =
-            TokenKind::map_keyword(&ident).unwrap_or_else(|| TokenKind::Identifier(ident));
+        let token_kind = TokenKind::map_keyword(ident).unwrap_or(TokenKind::Identifier(ident));
 
         Token::new(token_kind, span)
     }
