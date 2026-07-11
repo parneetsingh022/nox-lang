@@ -1,13 +1,34 @@
 use miette::NamedSource;
 
 use crate::{
-    diagnostic::{IncompleteFloatError, Span, UnexpectedCharError},
+    diagnostic::{
+        IncompleteFloatError, InvalidNumericSuffixError, LexerError, Span, UnexpectedCharError,
+    },
     tokenizer::{Token, TokenKind},
 };
 
-/// Returns true if given character is a whitespace.
+/// Returns whether the byte is ASCII whitespace.
+///
+/// This includes spaces, tabs, newlines, carriage returns, and other ASCII
+/// whitespace bytes recognized by [`u8::is_ascii_whitespace`].
 pub fn is_whitespace(ch: u8) -> bool {
     ch.is_ascii_whitespace()
+}
+
+/// Returns whether the byte can start an identifier.
+///
+/// Identifiers may start with an ASCII letter (`a-z`, `A-Z`) or an underscore
+/// (`_`).
+fn is_ident_start(ch: u8) -> bool {
+    ch.is_ascii_alphabetic() || ch == b'_'
+}
+
+/// Returns whether the byte can continue an identifier.
+///
+/// After the first character, identifiers may contain ASCII letters, digits
+/// (`0-9`), or underscores (`_`).
+fn is_ident_continue(ch: u8) -> bool {
+    ch.is_ascii_alphanumeric() || ch == b'_'
 }
 
 /// Tracks current position for lexer in source file
@@ -50,9 +71,9 @@ pub struct Lexer<'a> {
     source: &'a str,
     chars: &'a [u8],
     cursor: Cursor,
-    pub source_name: NamedSource<String>,
+    named_source: NamedSource<String>,
     // Store any errors encountered while tokenizing
-    pub errors: Vec<miette::Report>,
+    errors: Vec<LexerError>,
 }
 
 impl<'a> Iterator for Lexer<'a> {
@@ -73,12 +94,12 @@ impl<'a> Lexer<'a> {
             source,
             chars: source.as_bytes(),
             cursor: Cursor::default(),
-            source_name: NamedSource::new(filename, source.to_string()),
+            named_source: NamedSource::new(filename, source.to_string()),
             errors: Vec::new(),
         }
     }
 
-    pub fn take_errors(&mut self) -> Vec<miette::Report> {
+    pub fn take_errors(&mut self) -> Vec<LexerError> {
         std::mem::take(&mut self.errors)
     }
 
@@ -121,28 +142,62 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    fn emit_error(&mut self, err: impl Into<LexerError>) {
+        self.errors.push(err.into());
+    }
+
+    fn emit_unexpected_char(&mut self, start: Cursor, ch: u8) -> Token<'a> {
+        self.advance();
+
+        let span = self.span_from(start);
+
+        self.emit_error(UnexpectedCharError {
+            char: ch as char,
+            at: span.into(),
+            src: self.named_source.clone(),
+        });
+
+        Token::new(TokenKind::Unexpected, span)
+    }
+
+    fn emit_invalid_numeric_suffix(&mut self, start: Cursor) -> Token<'a> {
+        self.read_while(is_ident_continue);
+
+        let span = self.span_from(start.clone());
+
+        self.emit_error(InvalidNumericSuffixError {
+            at: span.into(),
+            src: self.named_source.clone(),
+        });
+
+        Token::new(TokenKind::Unexpected, span)
+    }
+
+    fn emit_incomplete_float(&mut self, start: Cursor) -> Token<'a> {
+        let span = self.span_from(start.clone());
+        let source_span = span.into();
+
+        let err = IncompleteFloatError {
+            at: source_span,
+            src: self.named_source.clone(),
+
+            suggestion: source_span,
+            // span.end-1 to ignore `.`
+            val: self.source[span.start..span.end - 1].to_string(),
+        };
+
+        self.emit_error(err);
+        Token::new(TokenKind::Unexpected, span)
+    }
+
     fn lex_next_token(&mut self) -> Option<Token<'a>> {
         self.skip_whitespace();
 
         match self.peek() {
-            Some(b'a'..=b'z' | b'A'..=b'Z' | b'_') => Some(self.lex_identifier()),
-            Some(b'0'..=b'9') => Some(self.lex_integer()),
+            Some(ident_start) if is_ident_start(ident_start) => Some(self.lex_identifier()),
+            Some(b'0'..=b'9') => Some(self.lex_number()),
             Some(invalid_char) => {
-                let start = self.cursor.clone();
-                self.advance(); // Skip the character so the lexer can continue
-
-                // 1. Create the specific error struct
-                let err = UnexpectedCharError {
-                    char: invalid_char as char,
-                    at: self.span_from(start.clone()).into(),
-                    src: self.source_name.clone(),
-                };
-
-                // 2. Push as a miette::Report
-                self.errors.push(miette::Report::new(err));
-
-                // 3. Return an "Error" token to let the Parser know something went wrong
-                Some(Token::new(TokenKind::Unexpected, self.span_from(start)))
+                Some(self.emit_unexpected_char(self.cursor.clone(), invalid_char))
             }
             None => None,
         }
@@ -150,7 +205,7 @@ impl<'a> Lexer<'a> {
 
     fn lex_identifier(&mut self) -> Token<'a> {
         let start = self.cursor.clone();
-        let ident = self.read_while(|ch| ch.is_ascii_alphanumeric() || ch == b'_');
+        let ident = self.read_while(is_ident_continue);
         let span = self.span_from(start);
 
         // Attempt to classify the identifier as a language keyword.
@@ -160,7 +215,7 @@ impl<'a> Lexer<'a> {
         Token::new(token_kind, span)
     }
 
-    fn lex_integer(&mut self) -> Token<'a> {
+    fn lex_number(&mut self) -> Token<'a> {
         let start = self.cursor.clone();
         let value = self.read_while(|ch| ch.is_ascii_digit());
 
@@ -168,6 +223,11 @@ impl<'a> Lexer<'a> {
             return self.lex_float(start);
         }
 
+        if let Some(ch) = self.peek()
+            && is_ident_start(ch)
+        {
+            return self.emit_invalid_numeric_suffix(start);
+        }
         let span = self.span_from(start);
         Token::new(TokenKind::IntLiteral(value), span)
     }
@@ -176,21 +236,14 @@ impl<'a> Lexer<'a> {
         self.advance(); // consume '.'
         let rest = self.read_while(|ch| ch.is_ascii_digit());
 
-        if rest.len() == 0 {
-            let span = self.span_from(start.clone());
-            let source_span = span.into();
+        if rest.is_empty() {
+            return self.emit_incomplete_float(start);
+        }
 
-            let err = IncompleteFloatError {
-                at: source_span,
-                src: self.source_name.clone(),
-
-                suggestion: source_span,
-                // span.end-1 to ignore `.`
-                val: self.source[span.start..span.end - 1].to_string(),
-            };
-
-            self.errors.push(miette::Report::new(err));
-            return Token::new(TokenKind::Unexpected, self.span_from(start));
+        if let Some(ch) = self.peek()
+            && is_ident_start(ch)
+        {
+            return self.emit_invalid_numeric_suffix(start);
         }
 
         let span = self.span_from(start.clone());

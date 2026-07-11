@@ -34,8 +34,23 @@ impl From<Span> for SourceSpan {
         let offset = span.start;
         let length = span.end - span.start;
 
-        Self::new(offset.into(), length.into())
+        Self::new(offset.into(), length)
     }
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+pub enum LexerError {
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    UnexpectedChar(#[from] UnexpectedCharError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    InvalidNumericSuffix(#[from] InvalidNumericSuffixError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    IncompleteFloat(#[from] IncompleteFloatError),
 }
 
 #[derive(Error, Debug, Diagnostic)]
@@ -71,6 +86,20 @@ pub struct IncompleteFloatError {
     pub suggestion: SourceSpan, // Point to the same location
 
     pub val: String,
+    #[source_code]
+    pub src: miette::NamedSource<String>,
+}
+
+#[derive(Error, Debug, Diagnostic)]
+#[error("Invalid numeric literal")]
+#[diagnostic(
+    code(nox::lexer::invalid_numeric_suffix),
+    help("Add whitespace or an operator between the number and the identifier.")
+)]
+pub struct InvalidNumericSuffixError {
+    #[label("number cannot be directly followed by identifier characters")]
+    pub at: SourceSpan,
+
     #[source_code]
     pub src: miette::NamedSource<String>,
 }
