@@ -13,4 +13,6 @@ strip = true
 codegen-units = 1
 
 [dependencies]
+miette = { version = "7.6.0", features = ["fancy"] }
 phf = { version = "0.14.0", features = ["macros"] }
+thiserror = "2.0.18"

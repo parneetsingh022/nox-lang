@@ -3,12 +3,20 @@ pub mod tokenizer;
 
 use tokenizer::lexer::Lexer;
 
+use crate::tokenizer::Token;
+
 fn main() {
-    let string = "let const ident ident2 349 5450 544.220 39.33";
+    let string = "what is your name 3495.\r\nthis is new line 339 439.24 454abc";
 
-    let lexer = Lexer::new(string);
+    let mut lexer = Lexer::new(string, "main.nox");
+    let tokens: Vec<Token<'_>> = lexer.by_ref().collect();
+    let errors = lexer.take_errors();
 
-    for token in lexer.into_iter() {
-        println!("{:?}", token);
+    for e in errors {
+        println!("{:?}", e);
+    }
+
+    for tok in tokens {
+        println!("{:?}", tok);
     }
 }
