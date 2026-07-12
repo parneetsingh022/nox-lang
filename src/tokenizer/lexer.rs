@@ -864,7 +864,7 @@ mod tests {
         for (i, (expected_kind, start, end)) in expected.iter().enumerate() {
             let token = lexer
                 .next()
-                .expect(&format!("Token at index {} missing", i));
+                .unwrap_or_else(|| panic!("Token at index {} missing", i));
 
             assert_eq!(token.kind, *expected_kind, "Kind mismatch at index {}", i);
             assert_eq!(
