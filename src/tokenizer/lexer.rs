@@ -223,8 +223,8 @@ impl<'a> Lexer<'a> {
         while !self.starts_with("*/") {
             if self.is_eof() {
                 // Limit the error span to just the opening "/*"
-                // or a small fixed number of characters.
-                let error_span = SourceSpan::new(start.offset.into(), 4);
+                // by setting the length to two
+                let error_span = SourceSpan::new(start.offset.into(), 2);
                 // Report the diagnostic via miette
                 self.emit_error(UnterminatedCommentError {
                     at: error_span,
