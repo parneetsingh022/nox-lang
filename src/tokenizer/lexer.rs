@@ -1,15 +1,38 @@
+use miette::NamedSource;
+
 use crate::{
-    diagnostic::Span,
+    diagnostic::{
+        IncompleteFloatError, InvalidNumericSuffixError, LexerError, Span, UnexpectedCharError,
+    },
     tokenizer::{Token, TokenKind},
 };
 
-/// Returns true if given character is a whitespace.
-pub fn is_whitespace(ch: u8) -> bool {
+/// Returns whether the byte is ASCII whitespace.
+///
+/// This includes spaces, tabs, newlines, carriage returns, and other ASCII
+/// whitespace bytes recognized by [`u8::is_ascii_whitespace`].
+pub fn is_whitespace(ch: char) -> bool {
     ch.is_ascii_whitespace()
 }
 
+/// Returns whether the byte can start an identifier.
+///
+/// Identifiers may start with an ASCII letter (`a-z`, `A-Z`) or an underscore
+/// (`_`).
+fn is_ident_start(ch: char) -> bool {
+    ch.is_ascii_alphabetic() || ch == '_'
+}
+
+/// Returns whether the byte can continue an identifier.
+///
+/// After the first character, identifiers may contain ASCII letters, digits
+/// (`0-9`), or underscores (`_`).
+fn is_ident_continue(ch: char) -> bool {
+    ch.is_ascii_alphanumeric() || ch == '_'
+}
+
 /// Tracks current position for lexer in source file
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub struct Cursor {
     offset: usize,
     line: usize,
@@ -27,11 +50,12 @@ impl Default for Cursor {
 }
 
 impl Cursor {
-    fn consume(&mut self, ch: u8) {
+    fn consume(&mut self, ch: char) {
+        let byte_len = ch.len_utf8();
         match ch {
-            b'\n' => self.newline(),
+            '\n' => self.newline(),
             _ => {
-                self.offset += 1;
+                self.offset += byte_len;
                 self.column += 1;
             }
         }
@@ -46,8 +70,10 @@ impl Cursor {
 
 pub struct Lexer<'a> {
     source: &'a str,
-    chars: &'a [u8],
     cursor: Cursor,
+    named_source: NamedSource<String>,
+    // Store any errors encountered while tokenizing
+    errors: Vec<LexerError>,
 }
 
 impl<'a> Iterator for Lexer<'a> {
@@ -63,20 +89,31 @@ impl<'a> Iterator for Lexer<'a> {
 }
 
 impl<'a> Lexer<'a> {
-    pub fn new(source: &'a str) -> Self {
+    /// Creates a lexer for the given source text.
+    ///
+    /// `filename` is used only for diagnostics, so errors can point back to the
+    /// source file they came from.
+    pub fn new(source: &'a str, filename: &'a str) -> Self {
         Self {
             source,
-            chars: source.as_bytes(),
             cursor: Cursor::default(),
+            named_source: NamedSource::new(filename, source.to_string()),
+            errors: Vec::new(),
         }
     }
 
-    fn is_eof(&self) -> bool {
-        self.cursor.offset >= self.chars.len()
+    /// takes all lexer errors collected so far, leaving the lexer with an empty
+    /// error list.
+    pub fn take_errors(&mut self) -> Vec<LexerError> {
+        std::mem::take(&mut self.errors)
     }
 
-    fn peek(&self) -> Option<u8> {
-        self.chars.get(self.cursor.offset).copied()
+    fn is_eof(&self) -> bool {
+        self.cursor.offset >= self.source.len()
+    }
+
+    fn peek(&self) -> Option<char> {
+        self.source[self.cursor.offset..].chars().next()
     }
 
     fn advance(&mut self) {
@@ -85,12 +122,19 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    /// Creates a span from `start` to the lexer's current cursor position.
+    ///
+    /// The start position is usually captured before consuming a token, while the
+    /// current cursor position marks the end of that token.
     fn span_from(&self, start: Cursor) -> Span {
         Span::new(start.offset, self.cursor.offset, start.line, start.column)
     }
 
-    fn read_while(&mut self, predicate: impl Fn(u8) -> bool) -> &'a str {
-        let start = self.cursor.clone();
+    /// Consumes bytes while `predicate` returns true and returns the consumed text.
+    ///
+    /// The returned string slice points into the original source.
+    fn read_while(&mut self, predicate: impl Fn(char) -> bool) -> &'a str {
+        let start = self.cursor;
         while let Some(ch) = self.peek()
             && predicate(ch)
         {
@@ -110,22 +154,81 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    fn emit_error(&mut self, err: impl Into<LexerError>) {
+        self.errors.push(err.into());
+    }
+
+    /// Emits an unexpected-character error and returns an error token for it.
+    ///
+    /// The invalid byte is consumed so lexing can continue after the error.
+    fn emit_unexpected_char(&mut self, start: Cursor, ch: char) -> Token<'a> {
+        self.advance();
+
+        let span = self.span_from(start);
+
+        self.emit_error(UnexpectedCharError {
+            char: ch,
+            at: span.into(),
+            src: self.named_source.clone(),
+        });
+
+        Token::new(TokenKind::Unexpected, span)
+    }
+
+    /// Emits an invalid numeric suffix error and returns an error token.
+    ///
+    /// This consumes the full suffix so input like `123abc` is reported as one
+    /// invalid token instead of separate `123` and `abc` tokens.
+    fn emit_invalid_numeric_suffix(&mut self, start: Cursor) -> Token<'a> {
+        // Consume the full suffix so `123abc` becomes one error token,
+        // not an integer token followed by an identifier token.
+        self.read_while(is_ident_continue);
+
+        let span = self.span_from(start);
+
+        self.emit_error(InvalidNumericSuffixError {
+            at: span.into(),
+            src: self.named_source.clone(),
+        });
+
+        Token::new(TokenKind::Unexpected, span)
+    }
+
+    /// Emits an incomplete-float error and returns an error token.
+    ///
+    /// This is used for numbers ending with a decimal point, such as `123.`.
+    fn emit_incomplete_float(&mut self, start: Cursor) -> Token<'a> {
+        let span = self.span_from(start);
+        let source_span = span.into();
+
+        let err = IncompleteFloatError {
+            at: source_span,
+            src: self.named_source.clone(),
+
+            suggestion: source_span,
+            // `span.end - 1` removes the trailing `.` from the suggestion value.
+            val: self.source[span.start..span.end - 1].to_string(),
+        };
+
+        self.emit_error(err);
+        Token::new(TokenKind::Unexpected, span)
+    }
+
     fn lex_next_token(&mut self) -> Option<Token<'a>> {
         self.skip_whitespace();
 
+        let ch = self.peek()?;
         match self.peek() {
-            Some(b'a'..=b'z' | b'A'..=b'Z' | b'_') => Some(self.lex_identifier()),
-            Some(b'0'..=b'9') => Some(self.lex_integer()),
-            Some(_) => {
-                todo!("handle unexpected characters");
-            }
+            _ if is_ident_start(ch) => Some(self.lex_identifier()),
+            _ if ch.is_ascii_digit() => Some(self.lex_number()),
+            Some(invalid_char) => Some(self.emit_unexpected_char(self.cursor, invalid_char)),
             None => None,
         }
     }
 
     fn lex_identifier(&mut self) -> Token<'a> {
-        let start = self.cursor.clone();
-        let ident = self.read_while(|ch| ch.is_ascii_alphanumeric() || ch == b'_');
+        let start = self.cursor;
+        let ident = self.read_while(is_ident_continue);
         let span = self.span_from(start);
 
         // Attempt to classify the identifier as a language keyword.
@@ -135,23 +238,54 @@ impl<'a> Lexer<'a> {
         Token::new(token_kind, span)
     }
 
-    fn lex_integer(&mut self) -> Token<'a> {
-        let start = self.cursor.clone();
+    /// Lexes an integer or floating-point number.
+    ///
+    /// If the number is followed by a `.`, lexing continues as a float.
+    fn lex_number(&mut self) -> Token<'a> {
+        let start = self.cursor;
         let value = self.read_while(|ch| ch.is_ascii_digit());
 
-        if self.peek() == Some(b'.') {
+        // A `.` after digits means this number may be a float.
+        if self.peek() == Some('.') {
             return self.lex_float(start);
         }
 
+        // Identifiers cannot be attached directly to number literals.
+        if let Some(ch) = self.peek()
+            && is_ident_start(ch)
+        {
+            return self.emit_invalid_numeric_suffix(start);
+        }
         let span = self.span_from(start);
         Token::new(TokenKind::IntLiteral(value), span)
     }
 
+    /// Continues lexing a floating-point number after the integer part.
+    ///
+    /// This assumes the current byte is `.` and consumes it before reading the
+    /// fractional digits.
     fn lex_float(&mut self, start: Cursor) -> Token<'a> {
-        self.advance(); // consume '.'
-        self.read_while(|ch| ch.is_ascii_digit());
+        // We enter this function only after seeing `.`, so consume it first.
+        self.advance();
 
-        let span = self.span_from(start.clone());
+        let rest = self.read_while(|ch| ch.is_ascii_digit());
+
+        if rest.is_empty() {
+            // A decimal point must be followed by at least one digit.
+            // For example, `123.` is treated as an incomplete float.
+            return self.emit_incomplete_float(start);
+        }
+
+        if let Some(ch) = self.peek()
+            && is_ident_start(ch)
+        {
+            // A number cannot be immediately followed by an identifier-like suffix.
+            // For example, `123abc` or `123.45abc` should be reported as one
+            // invalid numeric token instead of separate number and identifier tokens.
+            return self.emit_invalid_numeric_suffix(start);
+        }
+
+        let span = self.span_from(start);
         let value = &self.source[span.start..span.end];
 
         Token::new(TokenKind::FloatLiteral(value), span)
@@ -167,27 +301,72 @@ mod tests {
         assert_eq!(lexer.next(), None);
     }
 
+    fn assert_identifier(code: &str) {
+        let mut lexer = Lexer::new(code, "main.nox");
+
+        // Get the next token and verify it exists
+        let token = lexer.next().unwrap_or_else(|| {
+            panic!("Expected identifier token for input: '{}', found EOF", code)
+        });
+
+        // Verify the kind matches the input
+        assert_eq!(
+            token.kind,
+            TokenKind::Identifier(code),
+            "Lexer returned wrong token kind for input: '{}'",
+            code
+        );
+
+        // Verify the lexer reached EOF
+        assert_eof(&mut lexer);
+    }
+
     fn assert_keyword(code: &str, expected: Keyword) {
-        let mut lexer = Lexer::new(code);
+        let mut lexer = Lexer::new(code, "main.nox");
         let token = lexer.next().expect("Expected a token");
         assert_eq!(token.kind, TokenKind::Keyword(expected));
         assert!(lexer.next().is_none());
     }
 
+    fn assert_lexer_errors(code: &str, expected_variants: &[fn(&LexerError) -> bool]) {
+        let mut lexer = Lexer::new(code, "main.nox");
+        let _: Vec<_> = lexer.by_ref().collect();
+        let errors = lexer.take_errors();
+        dbg!(&errors);
+        assert_eq!(
+            errors.len(),
+            expected_variants.len(),
+            "Expected {} errors, but found {}",
+            expected_variants.len(),
+            errors.len()
+        );
+
+        for (i, (err, matcher)) in errors.iter().zip(expected_variants).enumerate() {
+            assert!(
+                matcher(err),
+                "Error at index {} did not match expected pattern: {:?}",
+                i,
+                err
+            );
+        }
+    }
+
     #[test]
     fn lexer_handles_empty_source() {
-        let mut lexer = Lexer::new("");
+        let mut lexer = Lexer::new("   \n\t\r\n  ", "main.nox");
         assert_eof(&mut lexer);
     }
 
     #[test]
-    fn lexer_recognizes_identifier() {
-        let code = "ident";
-        let mut lexer = Lexer::new(code);
-
-        assert_eq!(lexer.next().unwrap().kind, TokenKind::Identifier(code));
-        // Eof must return None
-        assert_eof(&mut lexer);
+    fn lexer_recognizes_identifiers() {
+        assert_identifier("ident");
+        assert_identifier("a");
+        assert_identifier("Z");
+        assert_identifier("underscore_ident");
+        assert_identifier("_start_with_underscore");
+        assert_identifier("ident123");
+        assert_identifier("a_b_c_1_2_3");
+        assert_identifier("__with_two_underscores");
     }
 
     #[test]
@@ -199,7 +378,7 @@ mod tests {
     #[test]
     fn lexer_recognizes_positive_integers() {
         let code = "234 596 32 0";
-        let mut lexer = Lexer::new(code);
+        let mut lexer = Lexer::new(code, "main.nox");
 
         assert_eq!(lexer.next().unwrap().kind, TokenKind::IntLiteral("234"));
         assert_eq!(lexer.next().unwrap().kind, TokenKind::IntLiteral("596"));
@@ -212,7 +391,7 @@ mod tests {
     #[test]
     fn lexer_recognizes_positive_floats() {
         let code = "234.49 4549.5239 32.39 0.0";
-        let mut lexer = Lexer::new(code);
+        let mut lexer = Lexer::new(code, "main.nox");
 
         assert_eq!(
             lexer.next().unwrap().kind,
@@ -231,7 +410,7 @@ mod tests {
     #[test]
     fn lexer_tracks_position_correctly() {
         let code = "let\n  x";
-        let mut lexer = Lexer::new(code);
+        let mut lexer = Lexer::new(code, "main.nox");
 
         let t1 = lexer.next().unwrap();
         assert_eq!(t1.span.line, 1);
@@ -245,7 +424,7 @@ mod tests {
     #[test]
     fn lexer_tracks_multiline_positions() {
         let code = "a\n\nb";
-        let mut lexer = Lexer::new(code);
+        let mut lexer = Lexer::new(code, "main.nox");
 
         let t1 = lexer.next().unwrap();
         assert_eq!(t1.span.line, 1);
@@ -258,7 +437,7 @@ mod tests {
     #[test]
     fn lexer_tracks_span_offsets() {
         let code = "hello";
-        let mut lexer = Lexer::new(code);
+        let mut lexer = Lexer::new(code, "main.nox");
 
         let t = lexer.next().unwrap();
         // 'hello' starts at 0 and ends at 5
@@ -268,14 +447,14 @@ mod tests {
 
     #[test]
     fn lexer_handles_whitespace_only_source() {
-        let mut lexer = Lexer::new("   \n\t\r\n  ");
+        let mut lexer = Lexer::new("   \n\t\r\n  ", "main.nox");
         assert_eof(&mut lexer);
     }
 
     #[test]
     fn lexer_recognizes_mixed_tokens() {
         let code = "let x 123 45.67 const";
-        let mut lexer = Lexer::new(code);
+        let mut lexer = Lexer::new(code, "main.nox");
 
         assert_eq!(lexer.next().unwrap().kind, TokenKind::Keyword(Keyword::Let));
         assert_eq!(lexer.next().unwrap().kind, TokenKind::Identifier("x"));
@@ -291,7 +470,7 @@ mod tests {
     #[test]
     fn lexer_recognizes_identifier_variants() {
         let code = "_abc abc123 letx const_value";
-        let mut lexer = Lexer::new(code);
+        let mut lexer = Lexer::new(code, "main.nox");
 
         assert_eq!(lexer.next().unwrap().kind, TokenKind::Identifier("_abc"));
         assert_eq!(lexer.next().unwrap().kind, TokenKind::Identifier("abc123"));
@@ -306,7 +485,7 @@ mod tests {
     #[test]
     fn lexer_tracks_span_offsets_after_whitespace() {
         let code = "  \n  hello";
-        let mut lexer = Lexer::new(code);
+        let mut lexer = Lexer::new(code, "main.nox");
 
         let t = lexer.next().unwrap();
 
@@ -320,7 +499,7 @@ mod tests {
     #[test]
     fn lexer_handles_tabs_before_token() {
         let code = "\t\tabc";
-        let mut lexer = Lexer::new(code);
+        let mut lexer = Lexer::new(code, "main.nox");
 
         let t = lexer.next().unwrap();
         assert_eq!(t.kind, TokenKind::Identifier("abc"));
@@ -330,7 +509,7 @@ mod tests {
     #[test]
     fn lexer_handles_crlf_newlines() {
         let code = "a\r\nb";
-        let mut lexer = Lexer::new(code);
+        let mut lexer = Lexer::new(code, "main.nox");
 
         let t1 = lexer.next().unwrap();
         assert_eq!(t1.span.line, 1);
@@ -339,5 +518,49 @@ mod tests {
         let t2 = lexer.next().unwrap();
         assert_eq!(t2.span.line, 2);
         assert_eq!(t2.span.column, 1);
+    }
+
+    #[test]
+    fn incomplete_float_literal_emit_error() {
+        // Single error case
+        assert_lexer_errors(
+            "395.",
+            &[|err| matches!(err, LexerError::IncompleteFloat(_))],
+        );
+
+        // Multiple errors in one string
+        assert_lexer_errors(
+            "395. 123.",
+            &[
+                |err| matches!(err, LexerError::IncompleteFloat(_)),
+                |err| matches!(err, LexerError::IncompleteFloat(_)),
+            ],
+        );
+
+        // Incomplete float followed by an integer
+        assert_lexer_errors(
+            "423. 34",
+            &[|err| matches!(err, LexerError::IncompleteFloat(_))],
+        );
+    }
+
+    #[test]
+    fn invalid_number_suffix_raises_error() {
+        assert_lexer_errors(
+            "395abc 492.4adb",
+            &[
+                |err| matches!(err, LexerError::InvalidNumericSuffix(_)),
+                |err| matches!(err, LexerError::InvalidNumericSuffix(_)),
+            ],
+        )
+    }
+
+    #[test]
+    fn lexer_recognizes_unexpected_chars() {
+        let cases = vec!["@", "#", "$", "§", "name@unexp", "@name"];
+
+        for code in cases {
+            assert_lexer_errors(code, &[|err| matches!(err, LexerError::UnexpectedChar(_))])
+        }
     }
 }

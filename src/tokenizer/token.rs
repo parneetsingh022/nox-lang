@@ -19,6 +19,8 @@ pub enum TokenKind<'a> {
 
     IntLiteral(&'a str),
     FloatLiteral(&'a str),
+
+    Unexpected,
 }
 
 impl<'a> TokenKind<'a> {

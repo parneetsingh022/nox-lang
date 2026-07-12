@@ -3,12 +3,20 @@ pub mod tokenizer;
 
 use tokenizer::lexer::Lexer;
 
+use crate::tokenizer::Token;
+
 fn main() {
-    let string = "let const ident ident2 349 5450 544.220 39.33";
+    let string = "§";
 
-    let lexer = Lexer::new(string);
+    let mut lexer = Lexer::new(string, "main.nox");
+    let tokens: Vec<Token<'_>> = lexer.by_ref().collect();
+    let errors = lexer.take_errors();
 
-    for token in lexer.into_iter() {
-        println!("{:?}", token);
+    for err in errors {
+        eprintln!("{:?}", miette::Report::new(err));
+    }
+
+    for tok in tokens {
+        println!("{:?}", tok);
     }
 }
