@@ -305,10 +305,9 @@ mod tests {
         let mut lexer = Lexer::new(code, "main.nox");
 
         // Get the next token and verify it exists
-        let token = lexer.next().expect(&format!(
-            "Expected identifier token for input: '{}', found EOF",
-            code
-        ));
+        let token = lexer.next().unwrap_or_else(|| {
+            panic!("Expected identifier token for input: '{}', found EOF", code)
+        });
 
         // Verify the kind matches the input
         assert_eq!(
