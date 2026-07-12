@@ -303,11 +303,55 @@ mod tests {
         assert_eq!(lexer.next(), None);
     }
 
+    fn assert_identifier(code: &str) {
+        let mut lexer = Lexer::new(code, "main.nox");
+
+        // Get the next token and verify it exists
+        let token = lexer.next().expect(&format!(
+            "Expected identifier token for input: '{}', found EOF",
+            code
+        ));
+
+        // Verify the kind matches the input
+        assert_eq!(
+            token.kind,
+            TokenKind::Identifier(code),
+            "Lexer returned wrong token kind for input: '{}'",
+            code
+        );
+
+        // Verify the lexer reached EOF
+        assert_eof(&mut lexer);
+    }
+
     fn assert_keyword(code: &str, expected: Keyword) {
         let mut lexer = Lexer::new(code, "main.nox");
         let token = lexer.next().expect("Expected a token");
         assert_eq!(token.kind, TokenKind::Keyword(expected));
         assert!(lexer.next().is_none());
+    }
+
+    fn assert_lexer_errors(code: &str, expected_variants: &[fn(&LexerError) -> bool]) {
+        let mut lexer = Lexer::new(code, "main.nox");
+        let _: Vec<_> = lexer.by_ref().collect();
+        let errors = lexer.take_errors();
+        dbg!(&errors);
+        assert_eq!(
+            errors.len(),
+            expected_variants.len(),
+            "Expected {} errors, but found {}",
+            expected_variants.len(),
+            errors.len()
+        );
+
+        for (i, (err, matcher)) in errors.iter().zip(expected_variants).enumerate() {
+            assert!(
+                matcher(err),
+                "Error at index {} did not match expected pattern: {:?}",
+                i,
+                err
+            );
+        }
     }
 
     #[test]
@@ -317,13 +361,15 @@ mod tests {
     }
 
     #[test]
-    fn lexer_recognizes_identifier() {
-        let code = "ident";
-        let mut lexer = Lexer::new(code, "main.nox");
-
-        assert_eq!(lexer.next().unwrap().kind, TokenKind::Identifier(code));
-        // Eof must return None
-        assert_eof(&mut lexer);
+    fn lexer_recognizes_identifiers() {
+        assert_identifier("ident");
+        assert_identifier("a");
+        assert_identifier("Z");
+        assert_identifier("underscore_ident");
+        assert_identifier("_start_with_underscore");
+        assert_identifier("ident123");
+        assert_identifier("a_b_c_1_2_3");
+        assert_identifier("__with_two_underscores");
     }
 
     #[test]
@@ -475,5 +521,49 @@ mod tests {
         let t2 = lexer.next().unwrap();
         assert_eq!(t2.span.line, 2);
         assert_eq!(t2.span.column, 1);
+    }
+
+    #[test]
+    fn incomplete_float_literal_emit_error() {
+        // Single error case
+        assert_lexer_errors(
+            "395.",
+            &[|err| matches!(err, LexerError::IncompleteFloat(_))],
+        );
+
+        // Multiple errors in one string
+        assert_lexer_errors(
+            "395. 123.",
+            &[
+                |err| matches!(err, LexerError::IncompleteFloat(_)),
+                |err| matches!(err, LexerError::IncompleteFloat(_)),
+            ],
+        );
+
+        // Incomplete float followed by an integer
+        assert_lexer_errors(
+            "423. 34",
+            &[|err| matches!(err, LexerError::IncompleteFloat(_))],
+        );
+    }
+
+    #[test]
+    fn invalid_number_suffix_raises_error() {
+        assert_lexer_errors(
+            "395abc 492.4adb",
+            &[
+                |err| matches!(err, LexerError::InvalidNumericSuffix(_)),
+                |err| matches!(err, LexerError::InvalidNumericSuffix(_)),
+            ],
+        )
+    }
+
+    #[test]
+    fn lexer_recognizes_unexpected_chars() {
+        let cases = vec!["@", "#", "$", "§", "name@unexp", "@name"];
+
+        for code in cases {
+            assert_lexer_errors(code, &[|err| matches!(err, LexerError::UnexpectedChar(_))])
+        }
     }
 }
