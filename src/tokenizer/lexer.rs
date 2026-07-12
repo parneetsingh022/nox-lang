@@ -861,18 +861,18 @@ mod tests {
             (TokenKind::Semi, 21, 22),
         ];
 
-        for (i, (expected_kind, start, end)) in expected.iter().enumerate() {
+        for (i, (expected_kind, start, end)) in expected.into_iter().enumerate() {
             let token = lexer
                 .next()
                 .unwrap_or_else(|| panic!("Token at index {} missing", i));
 
-            assert_eq!(token.kind, *expected_kind, "Kind mismatch at index {}", i);
+            assert_eq!(token.kind, expected_kind, "Kind mismatch at index {}", i);
             assert_eq!(
-                token.span.start, *start,
+                token.span.start, start,
                 "Start span mismatch at index {}",
                 i
             );
-            assert_eq!(token.span.end, *end, "End span mismatch at index {}", i);
+            assert_eq!(token.span.end, end, "End span mismatch at index {}", i);
         }
 
         assert!(lexer.next().is_none(), "Expected EOF");
