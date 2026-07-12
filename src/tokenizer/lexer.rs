@@ -11,7 +11,7 @@ use crate::{
 ///
 /// This includes spaces, tabs, newlines, carriage returns, and other ASCII
 /// whitespace bytes recognized by [`u8::is_ascii_whitespace`].
-pub fn is_whitespace(ch: u8) -> bool {
+pub fn is_whitespace(ch: char) -> bool {
     ch.is_ascii_whitespace()
 }
 
@@ -19,16 +19,16 @@ pub fn is_whitespace(ch: u8) -> bool {
 ///
 /// Identifiers may start with an ASCII letter (`a-z`, `A-Z`) or an underscore
 /// (`_`).
-fn is_ident_start(ch: u8) -> bool {
-    ch.is_ascii_alphabetic() || ch == b'_'
+fn is_ident_start(ch: char) -> bool {
+    ch.is_ascii_alphabetic() || ch == '_'
 }
 
 /// Returns whether the byte can continue an identifier.
 ///
 /// After the first character, identifiers may contain ASCII letters, digits
 /// (`0-9`), or underscores (`_`).
-fn is_ident_continue(ch: u8) -> bool {
-    ch.is_ascii_alphanumeric() || ch == b'_'
+fn is_ident_continue(ch: char) -> bool {
+    ch.is_ascii_alphanumeric() || ch == '_'
 }
 
 /// Tracks current position for lexer in source file
@@ -50,11 +50,12 @@ impl Default for Cursor {
 }
 
 impl Cursor {
-    fn consume(&mut self, ch: u8) {
+    fn consume(&mut self, ch: char) {
+        let byte_len = ch.len_utf8();
         match ch {
-            b'\n' => self.newline(),
+            '\n' => self.newline(),
             _ => {
-                self.offset += 1;
+                self.offset += byte_len;
                 self.column += 1;
             }
         }
@@ -69,7 +70,6 @@ impl Cursor {
 
 pub struct Lexer<'a> {
     source: &'a str,
-    chars: &'a [u8],
     cursor: Cursor,
     named_source: NamedSource<String>,
     // Store any errors encountered while tokenizing
@@ -96,7 +96,6 @@ impl<'a> Lexer<'a> {
     pub fn new(source: &'a str, filename: &'a str) -> Self {
         Self {
             source,
-            chars: source.as_bytes(),
             cursor: Cursor::default(),
             named_source: NamedSource::new(filename, source.to_string()),
             errors: Vec::new(),
@@ -110,11 +109,11 @@ impl<'a> Lexer<'a> {
     }
 
     fn is_eof(&self) -> bool {
-        self.cursor.offset >= self.chars.len()
+        self.cursor.offset >= self.source.len()
     }
 
-    fn peek(&self) -> Option<u8> {
-        self.chars.get(self.cursor.offset).copied()
+    fn peek(&self) -> Option<char> {
+        self.source[self.cursor.offset..].chars().next()
     }
 
     fn advance(&mut self) {
@@ -134,7 +133,7 @@ impl<'a> Lexer<'a> {
     /// Consumes bytes while `predicate` returns true and returns the consumed text.
     ///
     /// The returned string slice points into the original source.
-    fn read_while(&mut self, predicate: impl Fn(u8) -> bool) -> &'a str {
+    fn read_while(&mut self, predicate: impl Fn(char) -> bool) -> &'a str {
         let start = self.cursor.clone();
         while let Some(ch) = self.peek()
             && predicate(ch)
@@ -162,7 +161,7 @@ impl<'a> Lexer<'a> {
     /// Emits an unexpected-character error and returns an error token for it.
     ///
     /// The invalid byte is consumed so lexing can continue after the error.
-    fn emit_unexpected_char(&mut self, start: Cursor, ch: u8) -> Token<'a> {
+    fn emit_unexpected_char(&mut self, start: Cursor, ch: char) -> Token<'a> {
         self.advance();
 
         let span = self.span_from(start);
@@ -218,9 +217,10 @@ impl<'a> Lexer<'a> {
     fn lex_next_token(&mut self) -> Option<Token<'a>> {
         self.skip_whitespace();
 
+        let ch = self.peek()?;
         match self.peek() {
-            Some(ident_start) if is_ident_start(ident_start) => Some(self.lex_identifier()),
-            Some(b'0'..=b'9') => Some(self.lex_number()),
+            _ if is_ident_start(ch) => Some(self.lex_identifier()),
+            _ if ch.is_ascii_digit() => Some(self.lex_number()),
             Some(invalid_char) => {
                 Some(self.emit_unexpected_char(self.cursor.clone(), invalid_char))
             }
@@ -248,7 +248,7 @@ impl<'a> Lexer<'a> {
         let value = self.read_while(|ch| ch.is_ascii_digit());
 
         // A `.` after digits means this number may be a float.
-        if self.peek() == Some(b'.') {
+        if self.peek() == Some('.') {
             return self.lex_float(start);
         }
 
