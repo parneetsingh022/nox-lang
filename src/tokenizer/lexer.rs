@@ -230,7 +230,7 @@ impl<'a> Lexer<'a> {
                     src: self.named_source.clone(),
                 });
 
-                break;
+                return;
             }
             self.advance();
         }
