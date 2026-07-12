@@ -26,7 +26,7 @@ pub enum TokenKind<'a> {
     MinusMinus,
     /// `+`
     Plus,
-    /// `+`
+    /// `++`
     PlusPlus,
     /// `=`
     Eq,
