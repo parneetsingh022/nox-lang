@@ -112,8 +112,20 @@ impl<'a> Lexer<'a> {
         self.cursor.offset >= self.source.len()
     }
 
+    /// Returns the character at the current cursor position without consuming it.
+    ///
+    /// Returns `None` if the cursor is at the end of the source.
     fn peek(&self) -> Option<char> {
         self.source[self.cursor.offset..].chars().next()
+    }
+
+    fn consume_if(&mut self, expected: char) -> bool {
+        if self.peek() == Some(expected) {
+            self.advance();
+            true
+        } else {
+            false
+        }
     }
 
     fn advance(&mut self) {
@@ -218,11 +230,33 @@ impl<'a> Lexer<'a> {
         self.skip_whitespace();
 
         let ch = self.peek()?;
-        match self.peek() {
+        match ch {
             _ if is_ident_start(ch) => Some(self.lex_identifier()),
             _ if ch.is_ascii_digit() => Some(self.lex_number()),
-            Some(invalid_char) => Some(self.emit_unexpected_char(self.cursor, invalid_char)),
-            None => None,
+
+            // Potential two character symbols
+            '+' => Some(self.lex_plus_or_plus_plus()),
+            '-' => Some(self.lex_minus_or_minus_minus()),
+            '=' => Some(self.lex_eq_or_eqeq()),
+            '!' => Some(self.lex_bang_or_bangeq()),
+            '<' => Some(self.lex_lt_or_lteq()),
+            '>' => Some(self.lex_gt_or_gteq()),
+
+            // Single char symbols
+            '*' => Some(self.lex_single_char_tokens(TokenKind::Star)),
+            '/' => Some(self.lex_single_char_tokens(TokenKind::Slash)),
+            '%' => Some(self.lex_single_char_tokens(TokenKind::Percent)),
+            '^' => Some(self.lex_single_char_tokens(TokenKind::Caret)),
+            ';' => Some(self.lex_single_char_tokens(TokenKind::Semi)),
+            ',' => Some(self.lex_single_char_tokens(TokenKind::Comma)),
+            '.' => Some(self.lex_single_char_tokens(TokenKind::Dot)),
+            '(' => Some(self.lex_single_char_tokens(TokenKind::OpenParen)),
+            ')' => Some(self.lex_single_char_tokens(TokenKind::CloseParen)),
+            '{' => Some(self.lex_single_char_tokens(TokenKind::OpenBrace)),
+            '}' => Some(self.lex_single_char_tokens(TokenKind::CloseBrace)),
+            '[' => Some(self.lex_single_char_tokens(TokenKind::OpenBracket)),
+            ']' => Some(self.lex_single_char_tokens(TokenKind::CloseBracket)),
+            invalid_char => Some(self.emit_unexpected_char(self.cursor, invalid_char)),
         }
     }
 
@@ -289,6 +323,124 @@ impl<'a> Lexer<'a> {
         let value = &self.source[span.start..span.end];
 
         Token::new(TokenKind::FloatLiteral(value), span)
+    }
+
+    /// Lexes a single-character token.
+    ///
+    /// Consumes the current character, calculates the span for the token
+    /// starting at the position before advancement, and returns the
+    /// specified `TokenKind`.
+    fn lex_single_char_tokens(&mut self, kind: TokenKind<'a>) -> Token<'a> {
+        let start = self.cursor;
+        self.advance();
+        Token::new(kind, self.span_from(start))
+    }
+
+    /// Lexes a `+` or `++` token.
+    ///
+    /// Consumes the leading `+` and looks ahead to determine if it is followed
+    /// by another `+`. If so, it consumes the second character and returns
+    /// a `PlusPlus` token; otherwise, it returns a `Plus` token.
+    fn lex_plus_or_plus_plus(&mut self) -> Token<'a> {
+        // We expect current token to be `+`, so we skip it
+        let start = self.cursor;
+        self.advance();
+
+        let token_kind = if self.consume_if('+') {
+            TokenKind::PlusPlus
+        } else {
+            TokenKind::Plus
+        };
+
+        Token::new(token_kind, self.span_from(start))
+    }
+
+    /// Lexes a `-` or `--` token.
+    ///
+    /// Consumes the leading `-` and looks ahead to determine if it is followed
+    /// by another `-`. If so, it consumes the second character and returns
+    /// a `MinusMinus` token; otherwise, it returns a `Minus` token.
+    fn lex_minus_or_minus_minus(&mut self) -> Token<'a> {
+        // We expect current token to be `-`, so we skip it
+        let start = self.cursor;
+        self.advance();
+
+        let token_kind = if self.consume_if('-') {
+            TokenKind::MinusMinus
+        } else {
+            TokenKind::Minus
+        };
+
+        Token::new(token_kind, self.span_from(start))
+    }
+
+    /// Lexes an `=` or `==` token.
+    ///
+    /// Consumes the leading `=` and looks ahead to determine if it is followed
+    /// by another `=`. If so, it returns an `EqEq` token; otherwise,
+    /// it returns an `Eq` token.
+    fn lex_eq_or_eqeq(&mut self) -> Token<'a> {
+        let start = self.cursor;
+        self.advance();
+
+        let kind = if self.consume_if('=') {
+            TokenKind::EqEq
+        } else {
+            TokenKind::Eq
+        };
+
+        Token::new(kind, self.span_from(start))
+    }
+
+    /// Lexes a `!` or `!=` token.
+    ///
+    /// Consumes the `!` and checks if it is followed by `=`. If so, it returns
+    /// a `BangEq` token; otherwise, it returns a `Bang` token.
+    fn lex_bang_or_bangeq(&mut self) -> Token<'a> {
+        let start = self.cursor;
+        self.advance();
+
+        let kind = if self.consume_if('=') {
+            TokenKind::BangEq
+        } else {
+            TokenKind::Bang
+        };
+
+        Token::new(kind, self.span_from(start))
+    }
+
+    /// Lexes a `<` or `<=` token.
+    ///
+    /// Consumes the `<` and checks if it is followed by `=`. If so, it returns
+    /// an `LtEq` token; otherwise, it returns an `Lt` token.
+    fn lex_lt_or_lteq(&mut self) -> Token<'a> {
+        let start = self.cursor;
+        self.advance();
+
+        let kind = if self.consume_if('=') {
+            TokenKind::LtEq
+        } else {
+            TokenKind::Lt
+        };
+
+        Token::new(kind, self.span_from(start))
+    }
+
+    /// Lexes a `>` or `>=` token.
+    ///
+    /// Consumes the `>` and checks if it is followed by `=`. If so, it returns
+    /// a `GtEq` token; otherwise, it returns a `Gt` token.
+    fn lex_gt_or_gteq(&mut self) -> Token<'a> {
+        let start = self.cursor;
+        self.advance();
+
+        let kind = if self.consume_if('=') {
+            TokenKind::GtEq
+        } else {
+            TokenKind::Gt
+        };
+
+        Token::new(kind, self.span_from(start))
     }
 }
 
@@ -562,5 +714,167 @@ mod tests {
         for code in cases {
             assert_lexer_errors(code, &[|err| matches!(err, LexerError::UnexpectedChar(_))])
         }
+    }
+
+    #[test]
+    fn test_math_operators() {
+        let code = "+ ++ - -- * / % ^";
+        let mut lexer = Lexer::new(code, "test.nox");
+
+        let expected = vec![
+            TokenKind::Plus,
+            TokenKind::PlusPlus,
+            TokenKind::Minus,
+            TokenKind::MinusMinus,
+            TokenKind::Star,
+            TokenKind::Slash,
+            TokenKind::Percent,
+            TokenKind::Caret,
+        ];
+
+        for kind in expected {
+            let token = lexer.next().expect("Expected token, found EOF");
+            assert_eq!(token.kind, kind);
+        }
+    }
+
+    #[test]
+    fn test_comparison_operators() {
+        let code = "= == ! != < <= > >=";
+        let mut lexer = Lexer::new(code, "test.nox");
+
+        let expected = vec![
+            TokenKind::Eq,
+            TokenKind::EqEq,
+            TokenKind::Bang,
+            TokenKind::BangEq,
+            TokenKind::Lt,
+            TokenKind::LtEq,
+            TokenKind::Gt,
+            TokenKind::GtEq,
+        ];
+
+        for kind in expected {
+            let token = lexer.next().expect("Expected token, found EOF");
+            assert_eq!(token.kind, kind);
+        }
+    }
+
+    #[cfg(test)]
+    mod span_tests {
+        use super::*;
+
+        #[test]
+        fn test_operator_spans() {
+            // String:       "++ -- == !="
+            // Indices:       01234567890
+            let code = "++ -- == !=";
+            let mut lexer = Lexer::new(code, "test.nox");
+
+            // We define the expected start/end offsets (inclusive start, exclusive end)
+            let expectations = vec![
+                (TokenKind::PlusPlus, 0, 2),
+                (TokenKind::MinusMinus, 3, 5),
+                (TokenKind::EqEq, 6, 8),
+                (TokenKind::BangEq, 9, 11),
+            ];
+
+            for (kind, start, end) in expectations {
+                let token = lexer.next().expect("Expected token, found EOF");
+
+                // Verify Kind
+                assert_eq!(token.kind, kind);
+
+                // Verify Span
+                assert_eq!(
+                    token.span.start, start,
+                    "Start offset mismatch for {:?}",
+                    kind
+                );
+                assert_eq!(token.span.end, end, "End offset mismatch for {:?}", kind);
+            }
+        }
+    }
+
+    #[test]
+    fn test_punctuation_and_delimiters() {
+        // String: "; , . ( ) { } [ ]"
+        // Indices: 0 2 4 6 8 10 12 14 16
+        let code = "; , . ( ) { } [ ]";
+        let mut lexer = Lexer::new(code, "test.nox");
+
+        let expectations = vec![
+            (TokenKind::Semi, 0, 1),
+            (TokenKind::Comma, 2, 3),
+            (TokenKind::Dot, 4, 5),
+            (TokenKind::OpenParen, 6, 7),
+            (TokenKind::CloseParen, 8, 9),
+            (TokenKind::OpenBrace, 10, 11),
+            (TokenKind::CloseBrace, 12, 13),
+            (TokenKind::OpenBracket, 14, 15),
+            (TokenKind::CloseBracket, 16, 17),
+        ];
+
+        for (expected_kind, start, end) in expectations {
+            let token = lexer.next().expect("Expected token, found EOF");
+
+            assert_eq!(
+                token.kind, expected_kind,
+                "Kind mismatch for {:?}",
+                expected_kind
+            );
+            assert_eq!(
+                token.span.start, start,
+                "Start offset mismatch for {:?}",
+                expected_kind
+            );
+            assert_eq!(
+                token.span.end, end,
+                "End offset mismatch for {:?}",
+                expected_kind
+            );
+        }
+    }
+
+    #[test]
+    fn test_complex_mixed_expression() {
+        // String: "let x = (1 + [2 * 3]);"
+        // Token sequence:
+        // Keyword(Let), Identifier("x"), Assign, OpenParen, Int("1"), Plus,
+        // OpenBracket, Int("2"), Star, Int("3"), CloseBracket, CloseParen, Semi
+        let code = "let x = (1 + [2 * 3]);";
+        let mut lexer = Lexer::new(code, "test.nox");
+
+        let expected = vec![
+            (TokenKind::Keyword(Keyword::Let), 0, 3),
+            (TokenKind::Identifier("x"), 4, 5),
+            (TokenKind::Eq, 6, 7),
+            (TokenKind::OpenParen, 8, 9),
+            (TokenKind::IntLiteral("1"), 9, 10),
+            (TokenKind::Plus, 11, 12),
+            (TokenKind::OpenBracket, 13, 14),
+            (TokenKind::IntLiteral("2"), 14, 15),
+            (TokenKind::Star, 16, 17),
+            (TokenKind::IntLiteral("3"), 18, 19),
+            (TokenKind::CloseBracket, 19, 20),
+            (TokenKind::CloseParen, 20, 21),
+            (TokenKind::Semi, 21, 22),
+        ];
+
+        for (i, (expected_kind, start, end)) in expected.iter().enumerate() {
+            let token = lexer
+                .next()
+                .expect(&format!("Token at index {} missing", i));
+
+            assert_eq!(token.kind, *expected_kind, "Kind mismatch at index {}", i);
+            assert_eq!(
+                token.span.start, *start,
+                "Start span mismatch at index {}",
+                i
+            );
+            assert_eq!(token.span.end, *end, "End span mismatch at index {}", i);
+        }
+
+        assert!(lexer.next().is_none(), "Expected EOF");
     }
 }
