@@ -51,6 +51,10 @@ pub enum LexerError {
     #[error(transparent)]
     #[diagnostic(transparent)]
     IncompleteFloat(#[from] IncompleteFloatError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    UnterminatedComment(#[from] UnterminatedCommentError),
 }
 
 #[derive(Error, Debug, Diagnostic)]
@@ -98,6 +102,20 @@ pub struct IncompleteFloatError {
 )]
 pub struct InvalidNumericSuffixError {
     #[label("number cannot be directly followed by identifier characters")]
+    pub at: SourceSpan,
+
+    #[source_code]
+    pub src: miette::NamedSource<String>,
+}
+
+#[derive(Error, Debug, Diagnostic)]
+#[error("Unterminated multi-line comment")]
+#[diagnostic(
+    code(nox::lexer::unterminated_comment),
+    help("Multi-line comments started with '/*' must be closed with '*/'.")
+)]
+pub struct UnterminatedCommentError {
+    #[label("this comment was never closed")]
     pub at: SourceSpan,
 
     #[source_code]

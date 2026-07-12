@@ -1,8 +1,9 @@
-use miette::NamedSource;
+use miette::{NamedSource, SourceSpan};
 
 use crate::{
     diagnostic::{
         IncompleteFloatError, InvalidNumericSuffixError, LexerError, Span, UnexpectedCharError,
+        UnterminatedCommentError,
     },
     tokenizer::{Token, TokenKind},
 };
@@ -119,6 +120,23 @@ impl<'a> Lexer<'a> {
         self.source[self.cursor.offset..].chars().next()
     }
 
+    /// Checks if the remaining source string starts with the provided pattern.
+    ///
+    /// This performs a non-consuming check, allowing the lexer to look ahead
+    /// for multi-character tokens without advancing the internal cursor.
+    ///
+    /// # Arguments
+    ///
+    /// * `s` - The string pattern to match against the current position.
+    ///
+    /// # Returns
+    ///
+    /// * `true` if the source at the current cursor matches the pattern `s`.
+    /// * `false` otherwise, or if the remaining source is shorter than `s`.
+    fn starts_with(&self, s: &str) -> bool {
+        self.source[self.cursor.offset..].starts_with(s)
+    }
+
     fn consume_if(&mut self, expected: char) -> bool {
         if self.peek() == Some(expected) {
             self.advance();
@@ -130,6 +148,16 @@ impl<'a> Lexer<'a> {
 
     fn advance(&mut self) {
         if let Some(ch) = self.peek() {
+            self.cursor.consume(ch);
+        }
+    }
+
+    fn advance_n(&mut self, n: usize) {
+        // Get the slice of the remaining source
+        let remaining_source = &self.source[self.cursor.offset..];
+
+        // Take up to n characters from the iterator
+        for ch in remaining_source.chars().take(n) {
             self.cursor.consume(ch);
         }
     }
@@ -164,6 +192,51 @@ impl<'a> Lexer<'a> {
         {
             self.advance();
         }
+    }
+
+    fn skip_single_line_comments(&mut self) {
+        if !self.starts_with("//") {
+            return;
+        }
+
+        while let Some(ch) = self.peek() {
+            if ch == '\n' {
+                break;
+            }
+
+            self.advance();
+        }
+    }
+
+    /// Skips over multi-line comments `/* ... */`.
+    ///
+    /// If the comment is not terminated (EOF reached), it reports an
+    /// `UnterminatedCommentError` and returns an error token.
+    fn skip_multi_line_comment(&mut self) {
+        if !self.starts_with("/*") {
+            return;
+        }
+
+        let start = self.cursor;
+        self.advance_n(2); // Consume "/*"
+
+        while !self.starts_with("*/") {
+            if self.is_eof() {
+                // Limit the error span to just the opening "/*"
+                // or a small fixed number of characters.
+                let error_span = SourceSpan::new(start.offset.into(), 4);
+                // Report the diagnostic via miette
+                self.emit_error(UnterminatedCommentError {
+                    at: error_span,
+                    src: self.named_source.clone(),
+                });
+
+                break;
+            }
+            self.advance();
+        }
+
+        self.advance_n(2); // Consume "*/"
     }
 
     fn emit_error(&mut self, err: impl Into<LexerError>) {
@@ -227,7 +300,19 @@ impl<'a> Lexer<'a> {
     }
 
     fn lex_next_token(&mut self) -> Option<Token<'a>> {
-        self.skip_whitespace();
+        loop {
+            let start_offset = self.cursor.offset;
+
+            self.skip_whitespace();
+            self.skip_single_line_comments();
+            self.skip_multi_line_comment();
+
+            // If the offset didn't move, current char
+            // doesn't represent any whitespace or comment
+            if start_offset == self.cursor.offset {
+                break;
+            }
+        }
 
         let ch = self.peek()?;
         match ch {
