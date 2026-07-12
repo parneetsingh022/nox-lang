@@ -28,8 +28,13 @@ fn main() {
     let tokens: Vec<Token<'_>> = lexer.by_ref().collect();
     let errors = lexer.take_errors();
 
-    for err in errors {
-        eprintln!("{:?}", miette::Report::new(err));
+    if !errors.is_empty() {
+        eprintln!("Lexing failed with {} error(s):", errors.len());
+        for err in errors {
+            eprintln!("{:?}", miette::Report::new(err));
+        }
+        // Exit early if errors are found
+        std::process::exit(1);
     }
 
     for tok in tokens {
