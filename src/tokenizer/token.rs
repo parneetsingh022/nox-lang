@@ -20,6 +20,57 @@ pub enum TokenKind<'a> {
     IntLiteral(&'a str),
     FloatLiteral(&'a str),
 
+    /// `-`
+    Minus,
+    /// `--`
+    MinusMinus,
+    /// `+`
+    Plus,
+    /// `+`
+    PlusPlus,
+    /// `=`
+    Eq,
+    /// `==`
+    EqEq,
+    /// `!`
+    Bang,
+    /// `!=`
+    BangEq,
+    /// `<`
+    Lt,
+    /// `<=`
+    LtEq,
+    /// `>`
+    Gt,
+    /// `>=`
+    GtEq,
+    /// `*`
+    Star,
+    /// `/`
+    Slash,
+    /// `^`
+    Caret,
+    /// `%`
+    Percent,
+
+    /// `;`
+    Semi,
+    /// `,`
+    Comma,
+    /// `.`
+    Dot,
+    /// `(`
+    OpenParen,
+    /// `)`
+    CloseParen,
+    /// `{`
+    OpenBrace,
+    /// `}`
+    CloseBrace,
+    /// `[`
+    OpenBracket,
+    /// `]`
+    CloseBracket,
     Unexpected,
 }
 
