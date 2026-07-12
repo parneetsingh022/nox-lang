@@ -32,7 +32,7 @@ fn is_ident_continue(ch: char) -> bool {
 }
 
 /// Tracks current position for lexer in source file
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub struct Cursor {
     offset: usize,
     line: usize,
@@ -134,7 +134,7 @@ impl<'a> Lexer<'a> {
     ///
     /// The returned string slice points into the original source.
     fn read_while(&mut self, predicate: impl Fn(char) -> bool) -> &'a str {
-        let start = self.cursor.clone();
+        let start = self.cursor;
         while let Some(ch) = self.peek()
             && predicate(ch)
         {
@@ -184,7 +184,7 @@ impl<'a> Lexer<'a> {
         // not an integer token followed by an identifier token.
         self.read_while(is_ident_continue);
 
-        let span = self.span_from(start.clone());
+        let span = self.span_from(start);
 
         self.emit_error(InvalidNumericSuffixError {
             at: span.into(),
@@ -198,7 +198,7 @@ impl<'a> Lexer<'a> {
     ///
     /// This is used for numbers ending with a decimal point, such as `123.`.
     fn emit_incomplete_float(&mut self, start: Cursor) -> Token<'a> {
-        let span = self.span_from(start.clone());
+        let span = self.span_from(start);
         let source_span = span.into();
 
         let err = IncompleteFloatError {
@@ -221,15 +221,13 @@ impl<'a> Lexer<'a> {
         match self.peek() {
             _ if is_ident_start(ch) => Some(self.lex_identifier()),
             _ if ch.is_ascii_digit() => Some(self.lex_number()),
-            Some(invalid_char) => {
-                Some(self.emit_unexpected_char(self.cursor.clone(), invalid_char))
-            }
+            Some(invalid_char) => Some(self.emit_unexpected_char(self.cursor, invalid_char)),
             None => None,
         }
     }
 
     fn lex_identifier(&mut self) -> Token<'a> {
-        let start = self.cursor.clone();
+        let start = self.cursor;
         let ident = self.read_while(is_ident_continue);
         let span = self.span_from(start);
 
@@ -244,7 +242,7 @@ impl<'a> Lexer<'a> {
     ///
     /// If the number is followed by a `.`, lexing continues as a float.
     fn lex_number(&mut self) -> Token<'a> {
-        let start = self.cursor.clone();
+        let start = self.cursor;
         let value = self.read_while(|ch| ch.is_ascii_digit());
 
         // A `.` after digits means this number may be a float.
@@ -287,7 +285,7 @@ impl<'a> Lexer<'a> {
             return self.emit_invalid_numeric_suffix(start);
         }
 
-        let span = self.span_from(start.clone());
+        let span = self.span_from(start);
         let value = &self.source[span.start..span.end];
 
         Token::new(TokenKind::FloatLiteral(value), span)
