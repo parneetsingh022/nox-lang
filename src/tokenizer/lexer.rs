@@ -167,7 +167,7 @@ impl<'a> Lexer<'a> {
         let span = self.span_from(start);
 
         self.emit_error(UnexpectedCharError {
-            char: ch as char,
+            char: ch,
             at: span.into(),
             src: self.named_source.clone(),
         });
