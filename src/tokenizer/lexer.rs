@@ -327,9 +327,9 @@ impl<'a> Lexer<'a> {
 
     /// Lexes a single-character token.
     ///
-    /// Consumes the current character, calculates the span for the token
-    /// starting at the position before advancement, and returns the
-    /// specified `TokenKind`.
+    /// Captures the cursor position, consumes the current character by advancing,
+    /// and then constructs a new token using the span from the captured start
+    /// position to the new cursor position.
     fn lex_single_char_tokens(&mut self, kind: TokenKind<'a>) -> Token<'a> {
         let start = self.cursor;
         self.advance();
