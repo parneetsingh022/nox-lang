@@ -587,267 +587,351 @@ mod tests {
         }
     }
 
-    #[test]
-    fn lexer_handles_empty_source() {
-        let mut lexer = Lexer::new("   \n\t\r\n  ", "main.nox");
-        assert_eof(&mut lexer);
+    fn assert_kinds<'a>(code: &'a str, expected: Vec<TokenKind<'a>>) {
+        let generated: Vec<TokenKind<'a>> =
+            Lexer::new(code, "main.nox").map(|tok| tok.kind).collect();
+
+        assert_eq!(generated, expected);
     }
 
-    #[test]
-    fn lexer_recognizes_identifiers() {
-        assert_identifier("ident");
-        assert_identifier("a");
-        assert_identifier("Z");
-        assert_identifier("underscore_ident");
-        assert_identifier("_start_with_underscore");
-        assert_identifier("ident123");
-        assert_identifier("a_b_c_1_2_3");
-        assert_identifier("__with_two_underscores");
-    }
+    fn assert_token_spans<'a>(code: &'a str, expected: Vec<(TokenKind<'a>, Span)>) {
+        let generated: Vec<Token<'a>> = Lexer::new(code, "main.nox").collect();
 
-    #[test]
-    fn lexer_recognizes_keywords() {
-        assert_keyword("let", Keyword::Let);
-        assert_keyword("const", Keyword::Const);
-    }
+        assert_eq!(generated.len(), expected.len(), "token count mismatch");
 
-    #[test]
-    fn lexer_recognizes_positive_integers() {
-        let code = "234 596 32 0";
-        let mut lexer = Lexer::new(code, "main.nox");
+        for (index, (generated, (expected_kind, expected_span))) in
+            generated.iter().zip(expected.iter()).enumerate()
+        {
+            assert_eq!(
+                &generated.kind, expected_kind,
+                "token kind mismatch at index {index}"
+            );
 
-        assert_eq!(lexer.next().unwrap().kind, TokenKind::IntLiteral("234"));
-        assert_eq!(lexer.next().unwrap().kind, TokenKind::IntLiteral("596"));
-        assert_eq!(lexer.next().unwrap().kind, TokenKind::IntLiteral("32"));
-        assert_eq!(lexer.next().unwrap().kind, TokenKind::IntLiteral("0"));
-        // Eof must return None
-        assert_eof(&mut lexer);
-    }
-
-    #[test]
-    fn lexer_recognizes_positive_floats() {
-        let code = "234.49 4549.5239 32.39 0.0";
-        let mut lexer = Lexer::new(code, "main.nox");
-
-        assert_eq!(
-            lexer.next().unwrap().kind,
-            TokenKind::FloatLiteral("234.49")
-        );
-        assert_eq!(
-            lexer.next().unwrap().kind,
-            TokenKind::FloatLiteral("4549.5239")
-        );
-        assert_eq!(lexer.next().unwrap().kind, TokenKind::FloatLiteral("32.39"));
-        assert_eq!(lexer.next().unwrap().kind, TokenKind::FloatLiteral("0.0"));
-        // Eof must return None
-        assert_eof(&mut lexer);
-    }
-
-    #[test]
-    fn lexer_tracks_position_correctly() {
-        let code = "let\n  x";
-        let mut lexer = Lexer::new(code, "main.nox");
-
-        let t1 = lexer.next().unwrap();
-        assert_eq!(t1.span.line, 1);
-        assert_eq!(t1.span.column, 1);
-
-        let t2 = lexer.next().unwrap();
-        assert_eq!(t2.span.line, 2);
-        assert_eq!(t2.span.column, 3); // Accounts for 2 spaces of indentation
-    }
-
-    #[test]
-    fn lexer_tracks_multiline_positions() {
-        let code = "a\n\nb";
-        let mut lexer = Lexer::new(code, "main.nox");
-
-        let t1 = lexer.next().unwrap();
-        assert_eq!(t1.span.line, 1);
-        assert_eq!(t1.span.column, 1);
-
-        let t2 = lexer.next().unwrap(); // Should be 'b'
-        assert_eq!(t2.span.line, 3);
-        assert_eq!(t2.span.column, 1);
-    }
-    #[test]
-    fn lexer_tracks_span_offsets() {
-        let code = "hello";
-        let mut lexer = Lexer::new(code, "main.nox");
-
-        let t = lexer.next().unwrap();
-        // 'hello' starts at 0 and ends at 5
-        assert_eq!(t.span.start, 0);
-        assert_eq!(t.span.end, 5);
-    }
-
-    #[test]
-    fn lexer_handles_whitespace_only_source() {
-        let mut lexer = Lexer::new("   \n\t\r\n  ", "main.nox");
-        assert_eof(&mut lexer);
-    }
-
-    #[test]
-    fn lexer_recognizes_mixed_tokens() {
-        let code = "let x 123 45.67 const";
-        let mut lexer = Lexer::new(code, "main.nox");
-
-        assert_eq!(lexer.next().unwrap().kind, TokenKind::Keyword(Keyword::Let));
-        assert_eq!(lexer.next().unwrap().kind, TokenKind::Identifier("x"));
-        assert_eq!(lexer.next().unwrap().kind, TokenKind::IntLiteral("123"));
-        assert_eq!(lexer.next().unwrap().kind, TokenKind::FloatLiteral("45.67"));
-        assert_eq!(
-            lexer.next().unwrap().kind,
-            TokenKind::Keyword(Keyword::Const)
-        );
-        assert_eof(&mut lexer);
-    }
-
-    #[test]
-    fn lexer_recognizes_identifier_variants() {
-        let code = "_abc abc123 letx const_value";
-        let mut lexer = Lexer::new(code, "main.nox");
-
-        assert_eq!(lexer.next().unwrap().kind, TokenKind::Identifier("_abc"));
-        assert_eq!(lexer.next().unwrap().kind, TokenKind::Identifier("abc123"));
-        assert_eq!(lexer.next().unwrap().kind, TokenKind::Identifier("letx"));
-        assert_eq!(
-            lexer.next().unwrap().kind,
-            TokenKind::Identifier("const_value")
-        );
-        assert_eof(&mut lexer);
-    }
-
-    #[test]
-    fn lexer_tracks_span_offsets_after_whitespace() {
-        let code = "  \n  hello";
-        let mut lexer = Lexer::new(code, "main.nox");
-
-        let t = lexer.next().unwrap();
-
-        assert_eq!(t.kind, TokenKind::Identifier("hello"));
-        assert_eq!(t.span.start, 5);
-        assert_eq!(t.span.end, 10);
-        assert_eq!(t.span.line, 2);
-        assert_eq!(t.span.column, 3);
-    }
-
-    #[test]
-    fn lexer_handles_tabs_before_token() {
-        let code = "\t\tabc";
-        let mut lexer = Lexer::new(code, "main.nox");
-
-        let t = lexer.next().unwrap();
-        assert_eq!(t.kind, TokenKind::Identifier("abc"));
-        assert_eq!(t.span.column, 3);
-    }
-
-    #[test]
-    fn lexer_handles_crlf_newlines() {
-        let code = "a\r\nb";
-        let mut lexer = Lexer::new(code, "main.nox");
-
-        let t1 = lexer.next().unwrap();
-        assert_eq!(t1.span.line, 1);
-        assert_eq!(t1.span.column, 1);
-
-        let t2 = lexer.next().unwrap();
-        assert_eq!(t2.span.line, 2);
-        assert_eq!(t2.span.column, 1);
-    }
-
-    #[test]
-    fn incomplete_float_literal_emit_error() {
-        // Single error case
-        assert_lexer_errors(
-            "395.",
-            &[|err| matches!(err, LexerError::IncompleteFloat(_))],
-        );
-
-        // Multiple errors in one string
-        assert_lexer_errors(
-            "395. 123.",
-            &[
-                |err| matches!(err, LexerError::IncompleteFloat(_)),
-                |err| matches!(err, LexerError::IncompleteFloat(_)),
-            ],
-        );
-
-        // Incomplete float followed by an integer
-        assert_lexer_errors(
-            "423. 34",
-            &[|err| matches!(err, LexerError::IncompleteFloat(_))],
-        );
-    }
-
-    #[test]
-    fn invalid_number_suffix_raises_error() {
-        assert_lexer_errors(
-            "395abc 492.4adb",
-            &[
-                |err| matches!(err, LexerError::InvalidNumericSuffix(_)),
-                |err| matches!(err, LexerError::InvalidNumericSuffix(_)),
-            ],
-        )
-    }
-
-    #[test]
-    fn lexer_recognizes_unexpected_chars() {
-        let cases = vec!["@", "#", "$", "§", "name@unexp", "@name"];
-
-        for code in cases {
-            assert_lexer_errors(code, &[|err| matches!(err, LexerError::UnexpectedChar(_))])
+            assert_eq!(
+                &generated.span, expected_span,
+                "span mismatch for token {:?} at index {index}",
+                generated.kind
+            );
         }
     }
 
-    #[test]
-    fn test_math_operators() {
-        let code = "+ ++ - -- * / % ^";
-        let mut lexer = Lexer::new(code, "test.nox");
-
-        let expected = vec![
-            TokenKind::Plus,
-            TokenKind::PlusPlus,
-            TokenKind::Minus,
-            TokenKind::MinusMinus,
-            TokenKind::Star,
-            TokenKind::Slash,
-            TokenKind::Percent,
-            TokenKind::Caret,
-        ];
-
-        for kind in expected {
-            let token = lexer.next().expect("Expected token, found EOF");
-            assert_eq!(token.kind, kind);
-        }
-    }
-
-    #[test]
-    fn test_comparison_operators() {
-        let code = "= == ! != < <= > >=";
-        let mut lexer = Lexer::new(code, "test.nox");
-
-        let expected = vec![
-            TokenKind::Eq,
-            TokenKind::EqEq,
-            TokenKind::Bang,
-            TokenKind::BangEq,
-            TokenKind::Lt,
-            TokenKind::LtEq,
-            TokenKind::Gt,
-            TokenKind::GtEq,
-        ];
-
-        for kind in expected {
-            let token = lexer.next().expect("Expected token, found EOF");
-            assert_eq!(token.kind, kind);
-        }
-    }
-
-    #[cfg(test)]
-    mod span_tests {
+    mod token_kinds {
         use super::*;
 
+        #[test]
+        fn lexer_handles_empty_source() {
+            let mut lexer = Lexer::new("   \n\t\r\n  ", "main.nox");
+            assert_eof(&mut lexer);
+        }
+
+        #[test]
+        fn lexer_recognizes_identifiers() {
+            assert_identifier("ident");
+            assert_identifier("a");
+            assert_identifier("Z");
+            assert_identifier("underscore_ident");
+            assert_identifier("_start_with_underscore");
+            assert_identifier("ident123");
+            assert_identifier("a_b_c_1_2_3");
+            assert_identifier("__with_two_underscores");
+        }
+
+        #[test]
+        fn lexer_recognizes_keywords() {
+            assert_keyword("let", Keyword::Let);
+            assert_keyword("const", Keyword::Const);
+        }
+
+        #[test]
+        fn lexer_recognizes_positive_integers() {
+            let code = "234 596 32 0";
+
+            let expected = vec![
+                TokenKind::IntLiteral("234"),
+                TokenKind::IntLiteral("596"),
+                TokenKind::IntLiteral("32"),
+                TokenKind::IntLiteral("0"),
+            ];
+
+            assert_kinds(code, expected);
+        }
+
+        #[test]
+        fn lexer_recognizes_positive_floats() {
+            let code = "234.49 4549.5239 32.39 0.0";
+
+            let expected = vec![
+                TokenKind::FloatLiteral("234.49"),
+                TokenKind::FloatLiteral("4549.5239"),
+                TokenKind::FloatLiteral("32.39"),
+                TokenKind::FloatLiteral("0.0"),
+            ];
+
+            assert_kinds(code, expected);
+        }
+
+        #[test]
+        fn lexer_recognizes_mixed_tokens() {
+            let code = "let x 123 45.67 const";
+            let mut lexer = Lexer::new(code, "main.nox");
+
+            assert_eq!(lexer.next().unwrap().kind, TokenKind::Keyword(Keyword::Let));
+            assert_eq!(lexer.next().unwrap().kind, TokenKind::Identifier("x"));
+            assert_eq!(lexer.next().unwrap().kind, TokenKind::IntLiteral("123"));
+            assert_eq!(lexer.next().unwrap().kind, TokenKind::FloatLiteral("45.67"));
+            assert_eq!(
+                lexer.next().unwrap().kind,
+                TokenKind::Keyword(Keyword::Const)
+            );
+            assert_eof(&mut lexer);
+        }
+
+        #[test]
+        fn lexer_recognizes_identifier_variants() {
+            let code = "_abc abc123 letx const_value";
+            let mut lexer = Lexer::new(code, "main.nox");
+
+            assert_eq!(lexer.next().unwrap().kind, TokenKind::Identifier("_abc"));
+            assert_eq!(lexer.next().unwrap().kind, TokenKind::Identifier("abc123"));
+            assert_eq!(lexer.next().unwrap().kind, TokenKind::Identifier("letx"));
+            assert_eq!(
+                lexer.next().unwrap().kind,
+                TokenKind::Identifier("const_value")
+            );
+            assert_eof(&mut lexer);
+        }
+
+        #[test]
+        fn test_math_operators() {
+            let code = "+ ++ - -- * / % ^";
+            let mut lexer = Lexer::new(code, "test.nox");
+
+            let expected = vec![
+                TokenKind::Plus,
+                TokenKind::PlusPlus,
+                TokenKind::Minus,
+                TokenKind::MinusMinus,
+                TokenKind::Star,
+                TokenKind::Slash,
+                TokenKind::Percent,
+                TokenKind::Caret,
+            ];
+
+            for kind in expected {
+                let token = lexer.next().expect("Expected token, found EOF");
+                assert_eq!(token.kind, kind);
+            }
+        }
+
+        #[test]
+        fn test_comparison_operators() {
+            let code = "= == ! != < <= > >=";
+            let mut lexer = Lexer::new(code, "test.nox");
+
+            let expected = vec![
+                TokenKind::Eq,
+                TokenKind::EqEq,
+                TokenKind::Bang,
+                TokenKind::BangEq,
+                TokenKind::Lt,
+                TokenKind::LtEq,
+                TokenKind::Gt,
+                TokenKind::GtEq,
+            ];
+
+            for kind in expected {
+                let token = lexer.next().expect("Expected token, found EOF");
+                assert_eq!(token.kind, kind);
+            }
+        }
+        #[test]
+        fn single_line_comments_are_excluded_from_tokens() {
+            let code = r#"// This is starting comment
+let x = 10; // this is comment
+// let z = 20;
+// last line must be excluded
+print(x);
+"#;
+
+            assert_kinds(
+                code,
+                vec![
+                    TokenKind::Keyword(Keyword::Let),
+                    TokenKind::Identifier("x"),
+                    TokenKind::Eq,
+                    TokenKind::IntLiteral("10"),
+                    TokenKind::Semi,
+                    TokenKind::Identifier("print"),
+                    TokenKind::OpenParen,
+                    TokenKind::Identifier("x"),
+                    TokenKind::CloseParen,
+                    TokenKind::Semi,
+                ],
+            );
+        }
+    }
+
+    mod token_span {
+        use super::*;
+
+        #[test]
+        fn lexer_tracks_position_correctly() {
+            let code = "let\n  x";
+            let mut lexer = Lexer::new(code, "main.nox");
+
+            let t1 = lexer.next().unwrap();
+            assert_eq!(t1.span.line, 1);
+            assert_eq!(t1.span.column, 1);
+
+            let t2 = lexer.next().unwrap();
+            assert_eq!(t2.span.line, 2);
+            assert_eq!(t2.span.column, 3); // Accounts for 2 spaces of indentation
+        }
+
+        #[test]
+        fn lexer_tracks_multiline_positions() {
+            let code = "a\n\nb";
+            let mut lexer = Lexer::new(code, "main.nox");
+
+            let t1 = lexer.next().unwrap();
+            assert_eq!(t1.span.line, 1);
+            assert_eq!(t1.span.column, 1);
+
+            let t2 = lexer.next().unwrap(); // Should be 'b'
+            assert_eq!(t2.span.line, 3);
+            assert_eq!(t2.span.column, 1);
+        }
+
+        #[test]
+        fn lexer_tracks_span_offsets() {
+            let code = "hello";
+            let mut lexer = Lexer::new(code, "main.nox");
+
+            let t = lexer.next().unwrap();
+            // 'hello' starts at 0 and ends at 5
+            assert_eq!(t.span.start, 0);
+            assert_eq!(t.span.end, 5);
+        }
+
+        #[test]
+        fn lexer_handles_whitespace_only_source() {
+            let mut lexer = Lexer::new("   \n\t\r\n  ", "main.nox");
+            assert_eof(&mut lexer);
+        }
+
+        #[test]
+        fn lexer_tracks_span_offsets_after_whitespace() {
+            let code = "  \n  hello";
+            let mut lexer = Lexer::new(code, "main.nox");
+
+            let t = lexer.next().unwrap();
+
+            assert_eq!(t.kind, TokenKind::Identifier("hello"));
+            assert_eq!(t.span.start, 5);
+            assert_eq!(t.span.end, 10);
+            assert_eq!(t.span.line, 2);
+            assert_eq!(t.span.column, 3);
+        }
+
+        #[test]
+        fn lexer_handles_tabs_before_token() {
+            let code = "\t\tabc";
+            let mut lexer = Lexer::new(code, "main.nox");
+
+            let t = lexer.next().unwrap();
+            assert_eq!(t.kind, TokenKind::Identifier("abc"));
+            assert_eq!(t.span.column, 3);
+        }
+
+        #[test]
+        fn lexer_handles_crlf_newlines() {
+            let code = "a\r\nb";
+            let mut lexer = Lexer::new(code, "main.nox");
+
+            let t1 = lexer.next().unwrap();
+            assert_eq!(t1.span.line, 1);
+            assert_eq!(t1.span.column, 1);
+
+            let t2 = lexer.next().unwrap();
+            assert_eq!(t2.span.line, 2);
+            assert_eq!(t2.span.column, 1);
+        }
+
+        #[test]
+        fn spans_are_correct_on_first_line() {
+            let code = "let x";
+
+            assert_token_spans(
+                code,
+                vec![
+                    (
+                        TokenKind::Keyword(Keyword::Let),
+                        Span {
+                            start: 0,
+                            end: 3,
+                            line: 1,
+                            column: 1,
+                        },
+                    ),
+                    (
+                        TokenKind::Identifier("x"),
+                        Span {
+                            start: 4,
+                            end: 5,
+                            line: 1,
+                            column: 5,
+                        },
+                    ),
+                ],
+            );
+        }
+
+        #[test]
+        fn spans_are_correct_across_newline() {
+            let code = "let\nx";
+
+            assert_token_spans(
+                code,
+                vec![
+                    (
+                        TokenKind::Keyword(Keyword::Let),
+                        Span {
+                            start: 0,
+                            end: 3,
+                            line: 1,
+                            column: 1,
+                        },
+                    ),
+                    (
+                        TokenKind::Identifier("x"),
+                        Span {
+                            start: 4,
+                            end: 5,
+                            line: 2,
+                            column: 1,
+                        },
+                    ),
+                ],
+            );
+        }
+
+        #[test]
+        fn spans_ignore_leading_whitespace_but_track_columns() {
+            let code = "    let";
+
+            assert_token_spans(
+                code,
+                vec![(
+                    TokenKind::Keyword(Keyword::Let),
+                    Span {
+                        start: 4,
+                        end: 7,
+                        line: 1,
+                        column: 5,
+                    },
+                )],
+            );
+        }
         #[test]
         fn test_operator_spans() {
             // String:       "++ -- == !="
@@ -878,87 +962,191 @@ mod tests {
                 assert_eq!(token.span.end, end, "End offset mismatch for {:?}", kind);
             }
         }
-    }
 
-    #[test]
-    fn test_punctuation_and_delimiters() {
-        // String: "; , . ( ) { } [ ]"
-        // Indices: 0 2 4 6 8 10 12 14 16
-        let code = "; , . ( ) { } [ ]";
-        let mut lexer = Lexer::new(code, "test.nox");
+        #[test]
+        fn test_punctuation_and_delimiters() {
+            // String: "; , . ( ) { } [ ]"
+            // Indices: 0 2 4 6 8 10 12 14 16
+            let code = "; , . ( ) { } [ ]";
+            let mut lexer = Lexer::new(code, "test.nox");
 
-        let expectations = vec![
-            (TokenKind::Semi, 0, 1),
-            (TokenKind::Comma, 2, 3),
-            (TokenKind::Dot, 4, 5),
-            (TokenKind::OpenParen, 6, 7),
-            (TokenKind::CloseParen, 8, 9),
-            (TokenKind::OpenBrace, 10, 11),
-            (TokenKind::CloseBrace, 12, 13),
-            (TokenKind::OpenBracket, 14, 15),
-            (TokenKind::CloseBracket, 16, 17),
-        ];
+            let expectations = vec![
+                (TokenKind::Semi, 0, 1),
+                (TokenKind::Comma, 2, 3),
+                (TokenKind::Dot, 4, 5),
+                (TokenKind::OpenParen, 6, 7),
+                (TokenKind::CloseParen, 8, 9),
+                (TokenKind::OpenBrace, 10, 11),
+                (TokenKind::CloseBrace, 12, 13),
+                (TokenKind::OpenBracket, 14, 15),
+                (TokenKind::CloseBracket, 16, 17),
+            ];
 
-        for (expected_kind, start, end) in expectations {
-            let token = lexer.next().expect("Expected token, found EOF");
+            for (expected_kind, start, end) in expectations {
+                let token = lexer.next().expect("Expected token, found EOF");
 
-            assert_eq!(
-                token.kind, expected_kind,
-                "Kind mismatch for {:?}",
-                expected_kind
-            );
-            assert_eq!(
-                token.span.start, start,
-                "Start offset mismatch for {:?}",
-                expected_kind
-            );
-            assert_eq!(
-                token.span.end, end,
-                "End offset mismatch for {:?}",
-                expected_kind
+                assert_eq!(
+                    token.kind, expected_kind,
+                    "Kind mismatch for {:?}",
+                    expected_kind
+                );
+                assert_eq!(
+                    token.span.start, start,
+                    "Start offset mismatch for {:?}",
+                    expected_kind
+                );
+                assert_eq!(
+                    token.span.end, end,
+                    "End offset mismatch for {:?}",
+                    expected_kind
+                );
+            }
+        }
+
+        #[test]
+        fn test_complex_mixed_expression() {
+            // String: "let x = (1 + [2 * 3]);"
+            // Token sequence:
+            // Keyword(Let), Identifier("x"), Assign, OpenParen, Int("1"), Plus,
+            // OpenBracket, Int("2"), Star, Int("3"), CloseBracket, CloseParen, Semi
+            let code = "let x = (1 + [2 * 3]);";
+            let mut lexer = Lexer::new(code, "test.nox");
+
+            let expected = vec![
+                (TokenKind::Keyword(Keyword::Let), 0, 3),
+                (TokenKind::Identifier("x"), 4, 5),
+                (TokenKind::Eq, 6, 7),
+                (TokenKind::OpenParen, 8, 9),
+                (TokenKind::IntLiteral("1"), 9, 10),
+                (TokenKind::Plus, 11, 12),
+                (TokenKind::OpenBracket, 13, 14),
+                (TokenKind::IntLiteral("2"), 14, 15),
+                (TokenKind::Star, 16, 17),
+                (TokenKind::IntLiteral("3"), 18, 19),
+                (TokenKind::CloseBracket, 19, 20),
+                (TokenKind::CloseParen, 20, 21),
+                (TokenKind::Semi, 21, 22),
+            ];
+
+            for (i, (expected_kind, start, end)) in expected.into_iter().enumerate() {
+                let token = lexer
+                    .next()
+                    .unwrap_or_else(|| panic!("Token at index {} missing", i));
+
+                assert_eq!(token.kind, expected_kind, "Kind mismatch at index {}", i);
+                assert_eq!(
+                    token.span.start, start,
+                    "Start span mismatch at index {}",
+                    i
+                );
+                assert_eq!(token.span.end, end, "End span mismatch at index {}", i);
+            }
+
+            assert!(lexer.next().is_none(), "Expected EOF");
+        }
+
+        #[test]
+        fn spans_are_correct_after_single_line_comment() {
+            let code = "// comment\nlet x = 10;";
+
+            assert_token_spans(
+                code,
+                vec![
+                    (
+                        TokenKind::Keyword(Keyword::Let),
+                        Span {
+                            start: 11,
+                            end: 14,
+                            line: 2,
+                            column: 1,
+                        },
+                    ),
+                    (
+                        TokenKind::Identifier("x"),
+                        Span {
+                            start: 15,
+                            end: 16,
+                            line: 2,
+                            column: 5,
+                        },
+                    ),
+                    (
+                        TokenKind::Eq,
+                        Span {
+                            start: 17,
+                            end: 18,
+                            line: 2,
+                            column: 7,
+                        },
+                    ),
+                    (
+                        TokenKind::IntLiteral("10"),
+                        Span {
+                            start: 19,
+                            end: 21,
+                            line: 2,
+                            column: 9,
+                        },
+                    ),
+                    (
+                        TokenKind::Semi,
+                        Span {
+                            start: 21,
+                            end: 22,
+                            line: 2,
+                            column: 11,
+                        },
+                    ),
+                ],
             );
         }
     }
 
-    #[test]
-    fn test_complex_mixed_expression() {
-        // String: "let x = (1 + [2 * 3]);"
-        // Token sequence:
-        // Keyword(Let), Identifier("x"), Assign, OpenParen, Int("1"), Plus,
-        // OpenBracket, Int("2"), Star, Int("3"), CloseBracket, CloseParen, Semi
-        let code = "let x = (1 + [2 * 3]);";
-        let mut lexer = Lexer::new(code, "test.nox");
+    mod test_errors {
+        use super::*;
 
-        let expected = vec![
-            (TokenKind::Keyword(Keyword::Let), 0, 3),
-            (TokenKind::Identifier("x"), 4, 5),
-            (TokenKind::Eq, 6, 7),
-            (TokenKind::OpenParen, 8, 9),
-            (TokenKind::IntLiteral("1"), 9, 10),
-            (TokenKind::Plus, 11, 12),
-            (TokenKind::OpenBracket, 13, 14),
-            (TokenKind::IntLiteral("2"), 14, 15),
-            (TokenKind::Star, 16, 17),
-            (TokenKind::IntLiteral("3"), 18, 19),
-            (TokenKind::CloseBracket, 19, 20),
-            (TokenKind::CloseParen, 20, 21),
-            (TokenKind::Semi, 21, 22),
-        ];
-
-        for (i, (expected_kind, start, end)) in expected.into_iter().enumerate() {
-            let token = lexer
-                .next()
-                .unwrap_or_else(|| panic!("Token at index {} missing", i));
-
-            assert_eq!(token.kind, expected_kind, "Kind mismatch at index {}", i);
-            assert_eq!(
-                token.span.start, start,
-                "Start span mismatch at index {}",
-                i
+        #[test]
+        fn incomplete_float_literal_emit_error() {
+            // Single error case
+            assert_lexer_errors(
+                "395.",
+                &[|err| matches!(err, LexerError::IncompleteFloat(_))],
             );
-            assert_eq!(token.span.end, end, "End span mismatch at index {}", i);
+
+            // Multiple errors in one string
+            assert_lexer_errors(
+                "395. 123.",
+                &[
+                    |err| matches!(err, LexerError::IncompleteFloat(_)),
+                    |err| matches!(err, LexerError::IncompleteFloat(_)),
+                ],
+            );
+
+            // Incomplete float followed by an integer
+            assert_lexer_errors(
+                "423. 34",
+                &[|err| matches!(err, LexerError::IncompleteFloat(_))],
+            );
         }
 
-        assert!(lexer.next().is_none(), "Expected EOF");
+        #[test]
+        fn invalid_number_suffix_raises_error() {
+            assert_lexer_errors(
+                "395abc 492.4adb",
+                &[
+                    |err| matches!(err, LexerError::InvalidNumericSuffix(_)),
+                    |err| matches!(err, LexerError::InvalidNumericSuffix(_)),
+                ],
+            )
+        }
+
+        #[test]
+        fn lexer_recognizes_unexpected_chars() {
+            let cases = vec!["@", "#", "$", "§", "name@unexp", "@name"];
+
+            for code in cases {
+                assert_lexer_errors(code, &[|err| matches!(err, LexerError::UnexpectedChar(_))])
+            }
+        }
     }
 }
