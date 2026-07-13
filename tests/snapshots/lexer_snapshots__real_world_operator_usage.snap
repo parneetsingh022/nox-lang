@@ -1,0 +1,163 @@
+---
+source: tests/lexer_snapshots.rs
+expression: snapshot_tokens(source)
+---
+kind: Identifier("if")
+pos:  1:1
+range: [0..2]
+text:  "if"
+
+kind: OpenParen
+pos:  1:4
+range: [3..4]
+text:  "("
+
+kind: Identifier("x")
+pos:  1:5
+range: [4..5]
+text:  "x"
+
+kind: BangEq
+pos:  1:7
+range: [6..8]
+text:  "!="
+
+kind: IntLiteral("0")
+pos:  1:10
+range: [9..10]
+text:  "0"
+
+kind: And
+pos:  1:12
+range: [11..13]
+text:  "&&"
+
+kind: Identifier("y")
+pos:  1:15
+range: [14..15]
+text:  "y"
+
+kind: GtEq
+pos:  1:17
+range: [16..18]
+text:  ">="
+
+kind: FloatLiteral("10.5")
+pos:  1:20
+range: [19..23]
+text:  "10.5"
+
+kind: Or
+pos:  1:25
+range: [24..26]
+text:  "||"
+
+kind: Identifier("x")
+pos:  1:28
+range: [27..28]
+text:  "x"
+
+kind: LtEq
+pos:  1:30
+range: [29..31]
+text:  "<="
+
+kind: IntLiteral("10")
+pos:  1:33
+range: [32..34]
+text:  "10"
+
+kind: CloseParen
+pos:  1:35
+range: [34..35]
+text:  ")"
+
+kind: OpenBrace
+pos:  1:37
+range: [36..37]
+text:  "{"
+
+kind: Identifier("z")
+pos:  2:5
+range: [42..43]
+text:  "z"
+
+kind: Eq
+pos:  2:7
+range: [44..45]
+text:  "="
+
+kind: Identifier("x")
+pos:  2:9
+range: [46..47]
+text:  "x"
+
+kind: Plus
+pos:  2:11
+range: [48..49]
+text:  "+"
+
+kind: Identifier("y")
+pos:  2:13
+range: [50..51]
+text:  "y"
+
+kind: Star
+pos:  2:15
+range: [52..53]
+text:  "*"
+
+kind: IntLiteral("2")
+pos:  2:17
+range: [54..55]
+text:  "2"
+
+kind: Semi
+pos:  2:18
+range: [55..56]
+text:  ";"
+
+kind: CloseBrace
+pos:  3:1
+range: [57..58]
+text:  "}"
+
+kind: Identifier("else")
+pos:  3:3
+range: [59..63]
+text:  "else"
+
+kind: OpenBrace
+pos:  3:8
+range: [64..65]
+text:  "{"
+
+kind: Identifier("z")
+pos:  4:5
+range: [70..71]
+text:  "z"
+
+kind: Eq
+pos:  4:7
+range: [72..73]
+text:  "="
+
+kind: Minus
+pos:  4:9
+range: [74..75]
+text:  "-"
+
+kind: IntLiteral("1")
+pos:  4:10
+range: [75..76]
+text:  "1"
+
+kind: Semi
+pos:  4:11
+range: [76..77]
+text:  ";"
+
+kind: CloseBrace
+pos:  5:1
+range: [78..79]
+text:  "}"

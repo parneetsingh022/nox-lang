@@ -1,5 +1,7 @@
-const PI = 3.14;
-var x = 10;
+// this is a basic nox example
+
+const PI = 3.14; // const values can't be changed
+let x = 10.0;// this is test
 
 print(x);
 print(PI);

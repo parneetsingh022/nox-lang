@@ -16,3 +16,7 @@ codegen-units = 1
 miette = { version = "7.6.0", features = ["fancy"] }
 phf = { version = "0.14.0", features = ["macros"] }
 thiserror = "2.0.18"
+
+[dev-dependencies]
+insta = "1.48.0"
+rstest = "0.26.1"

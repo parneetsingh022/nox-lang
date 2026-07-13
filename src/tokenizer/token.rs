@@ -20,6 +20,10 @@ pub enum TokenKind<'a> {
     IntLiteral(&'a str),
     FloatLiteral(&'a str),
 
+    /// `&&`
+    And,
+    /// `||`
+    Or,
     /// `-`
     Minus,
     /// `--`

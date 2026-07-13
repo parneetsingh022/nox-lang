@@ -1,10 +1,7 @@
-pub mod diagnostic;
-pub mod tokenizer;
-
 use std::{env, fs, process};
 
-use crate::tokenizer::Token;
-use tokenizer::lexer::Lexer;
+use nox_lang::tokenizer::Lexer;
+use nox_lang::tokenizer::Token;
 
 fn main() {
     // Collect arguments from the command line
