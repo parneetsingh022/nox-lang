@@ -20,9 +20,9 @@ pub enum TokenKind<'a> {
     IntLiteral(&'a str),
     FloatLiteral(&'a str),
 
-    /// '&&'
+    /// `&&`
     And,
-    /// '||'
+    /// `||`
     Or,
     /// `-`
     Minus,
@@ -92,12 +92,6 @@ impl<'a> TokenKind<'a> {
 pub struct Token<'a> {
     pub kind: TokenKind<'a>,
     pub span: Span,
-}
-
-impl std::fmt::Display for Token<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:<20} @ {}", format!("{:?}", self.kind), self.span)
-    }
 }
 
 impl<'a> Token<'a> {
