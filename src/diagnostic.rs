@@ -1,3 +1,5 @@
+use std::fmt;
+
 use miette::{Diagnostic, NamedSource, SourceSpan};
 use thiserror::Error;
 
@@ -15,6 +17,16 @@ pub struct Span {
 
     /// 1-based column number where this span starts.
     pub column: usize,
+}
+
+impl fmt::Display for Span {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}:{} [{:?}..{:?}]",
+            self.line, self.column, self.start, self.end
+        )
+    }
 }
 
 impl Span {
