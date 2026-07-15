@@ -1,7 +1,9 @@
 use nox_lang::tokenizer::Lexer;
+
 fn snapshot_tokens(source: &str) -> String {
     let lexer = Lexer::new(source, "main.nox");
     lexer
+        .map(|r| r.unwrap())
         .map(|t| {
             format!(
                 "kind: {:?}\npos:  {}:{}\nrange: [{}..{}]\ntext:  {:?}\n",

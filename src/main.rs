@@ -22,19 +22,37 @@ fn main() {
     });
 
     let mut lexer = Lexer::new(&string, file_path);
-    let tokens: Vec<Token<'_>> = lexer.by_ref().collect();
-    let errors = lexer.take_errors();
-
-    if !errors.is_empty() {
-        eprintln!("Lexing failed with {} error(s):", errors.len());
-        for err in errors {
+    let tokens: Vec<Token<'_>> = match lexer.by_ref().collect::<Result<Vec<_>, _>>() {
+        Ok(tokens) => tokens,
+        Err(err) => {
+            print_collected_errors(&mut lexer);
             eprintln!("{:?}", miette::Report::new(err));
+            std::process::exit(1);
         }
-        // Exit early if errors are found
+    };
+
+    if print_collected_errors(&mut lexer) {
         std::process::exit(1);
     }
 
     for tok in tokens {
         println!("{:?}", tok);
     }
+}
+
+/// Prints all error collected by lexer.
+///
+/// Returns true if any errors were printed.
+fn print_collected_errors(lexer: &mut Lexer) -> bool {
+    let errors = lexer.take_errors();
+    if errors.is_empty() {
+        return false;
+    }
+
+    eprintln!("Lexing failed with {} error(s):", errors.len());
+    for err in errors {
+        eprintln!("{:?}", miette::Report::new(err));
+    }
+
+    true
 }
