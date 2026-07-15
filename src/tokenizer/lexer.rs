@@ -221,7 +221,7 @@ impl<'a> Lexer<'a> {
 
     /// Skips over multi-line comments `/* ... */`.
     ///
-    /// If the comment is not terminated (EOF reached), it reports an `UnterminatedCommentError`.
+    /// If the comment is not terminated (EOF reached), it returns an `UnterminatedCommentError`.
     fn skip_multi_line_comment(&mut self) -> Result<(), LexerError> {
         if !self.starts_with("/*") {
             return Ok(());
