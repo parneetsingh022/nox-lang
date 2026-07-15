@@ -1,9 +1,11 @@
+use std::sync::Arc;
+
 use miette::{NamedSource, SourceSpan};
 
 use crate::{
     diagnostic::{
-        IncompleteFloatError, InvalidNumericSuffixError, LexerError, Span, UnexpectedCharError,
-        UnterminatedCommentError,
+        IncompleteFloatError, InvalidNumericSuffixError, LexerError, SourceFile, Span,
+        UnexpectedCharError, UnterminatedCommentError,
     },
     tokenizer::{Token, TokenKind},
 };
@@ -72,13 +74,22 @@ impl Cursor {
 pub struct Lexer<'a> {
     source: &'a str,
     cursor: Cursor,
-    named_source: NamedSource<String>,
-    // Store any errors encountered while tokenizing
+    named_source: SourceFile,
+
+    // Diagnostics that can be reported together after tokenization.
+    //
+    // Some lexer errors do not prevent us from continuing to scan the rest of
+    // the file. For those cases, we record the diagnostic here and keep going,
+    // so the user can see multiple errors at once.
+    //
+    // Fatal errors are different: if the lexer cannot reliably continue, such as
+    // after an unterminated block comment or string, the error is returned
+    // immediately as `Err` from the iterator.
     errors: Vec<LexerError>,
 }
 
 impl<'a> Iterator for Lexer<'a> {
-    type Item = Token<'a>;
+    type Item = Result<Token<'a>, LexerError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.is_eof() {
@@ -98,7 +109,7 @@ impl<'a> Lexer<'a> {
         Self {
             source,
             cursor: Cursor::default(),
-            named_source: NamedSource::new(filename, source.to_string()),
+            named_source: Arc::new(NamedSource::new(filename, source.to_string())),
             errors: Vec::new(),
         }
     }
@@ -211,9 +222,9 @@ impl<'a> Lexer<'a> {
     /// Skips over multi-line comments `/* ... */`.
     ///
     /// If the comment is not terminated (EOF reached), it reports an `UnterminatedCommentError`.
-    fn skip_multi_line_comment(&mut self) {
+    fn skip_multi_line_comment(&mut self) -> Result<(), LexerError> {
         if !self.starts_with("/*") {
-            return;
+            return Ok(());
         }
 
         let start = self.cursor;
@@ -224,21 +235,25 @@ impl<'a> Lexer<'a> {
                 // Limit the error span to just the opening "/*"
                 // by setting the length to two
                 let error_span = SourceSpan::new(start.offset.into(), 2);
-                // Report the diagnostic via miette
-                self.emit_error(UnterminatedCommentError {
+                // Unterminated block comments are fatal because the lexer cannot reliably
+                // determine where normal tokenization should resume.
+                return Err(UnterminatedCommentError {
                     at: error_span,
                     src: self.named_source.clone(),
-                });
-
-                return;
+                }
+                .into());
             }
             self.advance();
         }
 
         self.advance_n(2); // Consume "*/"
+
+        Ok(())
     }
 
     fn emit_error(&mut self, err: impl Into<LexerError>) {
+        // Store diagnostics for errors where the lexer can still continue scanning.
+        // These are printed together after tokenization finishes.
         self.errors.push(err.into());
     }
 
@@ -298,13 +313,15 @@ impl<'a> Lexer<'a> {
         Token::new(TokenKind::Unexpected, span)
     }
 
-    fn lex_next_token(&mut self) -> Option<Token<'a>> {
+    fn lex_next_token(&mut self) -> Option<Result<Token<'a>, LexerError>> {
         loop {
             let start_offset = self.cursor.offset;
 
             self.skip_whitespace();
             self.skip_single_line_comments();
-            self.skip_multi_line_comment();
+            if let Err(err) = self.skip_multi_line_comment() {
+                return Some(Err(err));
+            }
 
             // If the offset didn't move, current char
             // doesn't represent any whitespace or comment
@@ -314,38 +331,40 @@ impl<'a> Lexer<'a> {
         }
 
         let ch = self.peek()?;
-        match ch {
-            _ if is_ident_start(ch) => Some(self.lex_identifier()),
-            _ if ch.is_ascii_digit() => Some(self.lex_number()),
+        let token = match ch {
+            _ if is_ident_start(ch) => self.lex_identifier(),
+            _ if ch.is_ascii_digit() => self.lex_number(),
 
             // Double char tokens
-            _ if self.starts_with("&&") => Some(self.lex_double_char_tokens(TokenKind::And)),
-            _ if self.starts_with("||") => Some(self.lex_double_char_tokens(TokenKind::Or)),
+            _ if self.starts_with("&&") => self.lex_double_char_tokens(TokenKind::And),
+            _ if self.starts_with("||") => self.lex_double_char_tokens(TokenKind::Or),
 
             // Potential two character symbols
-            '+' => Some(self.lex_plus_or_plus_plus()),
-            '-' => Some(self.lex_minus_or_minus_minus()),
-            '=' => Some(self.lex_eq_or_eqeq()),
-            '!' => Some(self.lex_bang_or_bangeq()),
-            '<' => Some(self.lex_lt_or_lteq()),
-            '>' => Some(self.lex_gt_or_gteq()),
+            '+' => self.lex_plus_or_plus_plus(),
+            '-' => self.lex_minus_or_minus_minus(),
+            '=' => self.lex_eq_or_eqeq(),
+            '!' => self.lex_bang_or_bangeq(),
+            '<' => self.lex_lt_or_lteq(),
+            '>' => self.lex_gt_or_gteq(),
 
             // Single char symbols
-            '*' => Some(self.lex_single_char_tokens(TokenKind::Star)),
-            '/' => Some(self.lex_single_char_tokens(TokenKind::Slash)),
-            '%' => Some(self.lex_single_char_tokens(TokenKind::Percent)),
-            '^' => Some(self.lex_single_char_tokens(TokenKind::Caret)),
-            ';' => Some(self.lex_single_char_tokens(TokenKind::Semi)),
-            ',' => Some(self.lex_single_char_tokens(TokenKind::Comma)),
-            '.' => Some(self.lex_single_char_tokens(TokenKind::Dot)),
-            '(' => Some(self.lex_single_char_tokens(TokenKind::OpenParen)),
-            ')' => Some(self.lex_single_char_tokens(TokenKind::CloseParen)),
-            '{' => Some(self.lex_single_char_tokens(TokenKind::OpenBrace)),
-            '}' => Some(self.lex_single_char_tokens(TokenKind::CloseBrace)),
-            '[' => Some(self.lex_single_char_tokens(TokenKind::OpenBracket)),
-            ']' => Some(self.lex_single_char_tokens(TokenKind::CloseBracket)),
-            invalid_char => Some(self.emit_unexpected_char(self.cursor, invalid_char)),
-        }
+            '*' => self.lex_single_char_tokens(TokenKind::Star),
+            '/' => self.lex_single_char_tokens(TokenKind::Slash),
+            '%' => self.lex_single_char_tokens(TokenKind::Percent),
+            '^' => self.lex_single_char_tokens(TokenKind::Caret),
+            ';' => self.lex_single_char_tokens(TokenKind::Semi),
+            ',' => self.lex_single_char_tokens(TokenKind::Comma),
+            '.' => self.lex_single_char_tokens(TokenKind::Dot),
+            '(' => self.lex_single_char_tokens(TokenKind::OpenParen),
+            ')' => self.lex_single_char_tokens(TokenKind::CloseParen),
+            '{' => self.lex_single_char_tokens(TokenKind::OpenBrace),
+            '}' => self.lex_single_char_tokens(TokenKind::CloseBrace),
+            '[' => self.lex_single_char_tokens(TokenKind::OpenBracket),
+            ']' => self.lex_single_char_tokens(TokenKind::CloseBracket),
+            invalid_char => self.emit_unexpected_char(self.cursor, invalid_char),
+        };
+
+        Some(Ok(token))
     }
 
     fn lex_identifier(&mut self) -> Token<'a> {
@@ -550,18 +569,22 @@ mod tests {
 
     use crate::tokenizer::Keyword;
 
+    fn next_token<'a>(lexer: &mut Lexer<'a>) -> Token<'a> {
+        lexer
+            .next()
+            .expect("expected token, found EOF")
+            .expect("expected token, found lexer error")
+    }
+
     fn assert_eof<'a>(lexer: &mut Lexer<'a>) {
-        assert_eq!(lexer.next(), None);
+        assert!(lexer.next().is_none());
     }
 
     fn assert_identifier(code: &str) {
         let mut lexer = Lexer::new(code, "main.nox");
 
         // Get the next token and verify it exists
-        let token = lexer.next().unwrap_or_else(|| {
-            panic!("Expected identifier token for input: '{}', found EOF", code)
-        });
-
+        let token = next_token(&mut lexer);
         // Verify the kind matches the input
         assert_eq!(
             token.kind,
@@ -576,7 +599,7 @@ mod tests {
 
     fn assert_keyword(code: &str, expected: Keyword) {
         let mut lexer = Lexer::new(code, "main.nox");
-        let token = lexer.next().expect("Expected a token");
+        let token = next_token(&mut lexer);
         assert_eq!(token.kind, TokenKind::Keyword(expected));
         assert!(lexer.next().is_none());
     }
@@ -605,16 +628,24 @@ mod tests {
     }
 
     fn assert_kinds<'a>(code: &'a str, expected: Vec<TokenKind<'a>>) {
-        let generated: Vec<TokenKind<'a>> =
-            Lexer::new(code, "main.nox").map(|tok| tok.kind).collect();
+        let mut lexer = Lexer::new(code, "main.nox");
+
+        let generated: Vec<TokenKind<'a>> = (0..expected.len())
+            .map(|_| next_token(&mut lexer).kind)
+            .collect();
 
         assert_eq!(generated, expected);
+        assert_eof(&mut lexer);
     }
 
     fn assert_token_spans<'a>(code: &'a str, expected: Vec<(TokenKind<'a>, Span)>) {
-        let generated: Vec<Token<'a>> = Lexer::new(code, "main.nox").collect();
+        let mut lexer = Lexer::new(code, "main.nox");
 
-        assert_eq!(generated.len(), expected.len(), "token count mismatch");
+        let generated: Vec<Token<'a>> = (0..expected.len())
+            .map(|_| next_token(&mut lexer))
+            .collect();
+
+        assert_eof(&mut lexer);
 
         for (index, (generated, (expected_kind, expected_span))) in
             generated.iter().zip(expected.iter()).enumerate()
@@ -692,12 +723,18 @@ mod tests {
             let code = "let x 123 45.67 const";
             let mut lexer = Lexer::new(code, "main.nox");
 
-            assert_eq!(lexer.next().unwrap().kind, TokenKind::Keyword(Keyword::Let));
-            assert_eq!(lexer.next().unwrap().kind, TokenKind::Identifier("x"));
-            assert_eq!(lexer.next().unwrap().kind, TokenKind::IntLiteral("123"));
-            assert_eq!(lexer.next().unwrap().kind, TokenKind::FloatLiteral("45.67"));
             assert_eq!(
-                lexer.next().unwrap().kind,
+                next_token(&mut lexer).kind,
+                TokenKind::Keyword(Keyword::Let)
+            );
+            assert_eq!(next_token(&mut lexer).kind, TokenKind::Identifier("x"));
+            assert_eq!(next_token(&mut lexer).kind, TokenKind::IntLiteral("123"));
+            assert_eq!(
+                next_token(&mut lexer).kind,
+                TokenKind::FloatLiteral("45.67")
+            );
+            assert_eq!(
+                next_token(&mut lexer).kind,
                 TokenKind::Keyword(Keyword::Const)
             );
             assert_eof(&mut lexer);
@@ -714,9 +751,9 @@ mod tests {
         #[case("^", TokenKind::Caret)]
         fn test_individual_math_operator(#[case] input: &str, #[case] expected: TokenKind) {
             let mut lexer = Lexer::new(input, "test.nox");
-            let token = lexer.next().expect("Expected token, found EOF");
+            let token = next_token(&mut lexer);
             assert_eq!(token.kind, expected);
-            assert!(lexer.next().is_none(), "Expected EOF after operator");
+            assert_eof(&mut lexer);
         }
 
         #[rstest]
@@ -730,10 +767,9 @@ mod tests {
         #[case(">=", TokenKind::GtEq)]
         fn test_comparison_operators(#[case] code: &str, #[case] expected: TokenKind) {
             let mut lexer = Lexer::new(code, "test.nox");
-            let token = lexer.next().expect("Expected token, found EOF");
 
-            assert_eq!(token.kind, expected);
-            assert!(lexer.next().is_none(), "Expected EOF after operator");
+            assert_eq!(next_token(&mut lexer).kind, expected);
+            assert_eof(&mut lexer);
         }
 
         #[test]
@@ -780,10 +816,10 @@ print(x);
             let code = "let\n  x";
             let mut lexer = Lexer::new(code, "main.nox");
 
-            let t1 = lexer.next().expect("Expected 'let'");
+            let t1 = next_token(&mut lexer);
             assert_eq!(t1.span, s(0, 3, 1, 1));
 
-            let t2 = lexer.next().expect("Expected 'x'");
+            let t2 = next_token(&mut lexer);
             assert_eq!(t2.span, s(6, 7, 2, 3)); // Accounts for 2 spaces of indentation
         }
 
@@ -792,10 +828,10 @@ print(x);
             let code = "a\n\nb";
             let mut lexer = Lexer::new(code, "main.nox");
 
-            let t1 = lexer.next().expect("Expected 'a'");
+            let t1 = next_token(&mut lexer);
             assert_eq!(t1.span, s(0, 1, 1, 1));
 
-            let t2 = lexer.next().expect("Expected 'b'");
+            let t2 = next_token(&mut lexer);
             assert_eq!(t2.span, s(3, 4, 3, 1));
         }
 
@@ -810,7 +846,7 @@ print(x);
             let code = "  \n  hello";
             let mut lexer = Lexer::new(code, "main.nox");
 
-            let t = lexer.next().expect("Expected 'hello' identifier");
+            let t = next_token(&mut lexer);
 
             assert_eq!(t.kind, TokenKind::Identifier("hello"));
             assert_eq!(t.span, s(5, 10, 2, 3));
@@ -821,7 +857,7 @@ print(x);
             let code = "\t\tabc";
             let mut lexer = Lexer::new(code, "main.nox");
 
-            let t = lexer.next().expect("Expected 'abc' identifier");
+            let t = next_token(&mut lexer);
 
             assert_eq!(t.kind, TokenKind::Identifier("abc"));
             // Starts at 2, ends at 5, line 1, column 3
@@ -833,10 +869,10 @@ print(x);
             let code = "a\r\nb";
             let mut lexer = Lexer::new(code, "main.nox");
 
-            let t1 = lexer.next().expect("Expected 'a'");
+            let t1 = next_token(&mut lexer);
             assert_eq!(t1.span, s(0, 1, 1, 1));
 
-            let t2 = lexer.next().expect("Expected 'b'");
+            let t2 = next_token(&mut lexer);
             assert_eq!(t2.span, s(3, 4, 2, 1));
         }
 
@@ -866,7 +902,7 @@ print(x);
             #[case] end: usize,
         ) {
             let mut lexer = Lexer::new(code, "test.nox");
-            let token = lexer.next().expect("Expected token");
+            let token = next_token(&mut lexer);
 
             assert_eq!(token.kind, kind);
             assert_eq!(token.span.start, start);
@@ -889,7 +925,7 @@ print(x);
             #[case] expected_span: Span,
         ) {
             let mut lexer = Lexer::new(input, "test.nox");
-            let token = lexer.next().expect("Expected token, found EOF");
+            let token = next_token(&mut lexer);
 
             assert_eq!(token.kind, kind);
             assert_eq!(token.span, expected_span);

@@ -1,5 +1,9 @@
+use std::sync::Arc;
+
 use miette::{Diagnostic, NamedSource, SourceSpan};
 use thiserror::Error;
+
+pub type SourceFile = Arc<NamedSource<String>>;
 
 /// Represents position of a token in the source file.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -73,7 +77,7 @@ pub struct UnexpectedCharError {
 
     // Use NamedSource to hold the context efficiently
     #[source_code]
-    pub src: NamedSource<String>,
+    pub src: SourceFile,
 }
 
 #[derive(Error, Debug, Diagnostic)]
@@ -91,7 +95,7 @@ pub struct IncompleteFloatError {
 
     pub val: String,
     #[source_code]
-    pub src: miette::NamedSource<String>,
+    pub src: SourceFile,
 }
 
 #[derive(Error, Debug, Diagnostic)]
@@ -105,7 +109,7 @@ pub struct InvalidNumericSuffixError {
     pub at: SourceSpan,
 
     #[source_code]
-    pub src: miette::NamedSource<String>,
+    pub src: SourceFile,
 }
 
 #[derive(Error, Debug, Diagnostic)]
@@ -119,5 +123,5 @@ pub struct UnterminatedCommentError {
     pub at: SourceSpan,
 
     #[source_code]
-    pub src: miette::NamedSource<String>,
+    pub src: SourceFile,
 }
