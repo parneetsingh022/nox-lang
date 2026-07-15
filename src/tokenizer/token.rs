@@ -75,6 +75,7 @@ pub enum TokenKind<'a> {
     OpenBracket,
     /// `]`
     CloseBracket,
+
     Unexpected,
 }
 

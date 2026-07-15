@@ -251,21 +251,22 @@ impl<'a> Lexer<'a> {
         Ok(())
     }
 
-    fn emit_error(&mut self, err: impl Into<LexerError>) {
+    fn push_diagnostic(&mut self, err: impl Into<LexerError>) {
         // Store diagnostics for errors where the lexer can still continue scanning.
         // These are printed together after tokenization finishes.
         self.errors.push(err.into());
     }
 
-    /// Emits an unexpected-character error and returns an error token for it.
+    /// Creates an `Unexpected` token for an unrecognized character.
     ///
-    /// The invalid byte is consumed so lexing can continue after the error.
-    fn emit_unexpected_char(&mut self, start: Cursor, ch: char) -> Token<'a> {
+    /// The character is consumed, and a diagnostic is stored so lexing can continue
+    /// and report more errors from the same file.
+    fn unexpected_char_token(&mut self, start: Cursor, ch: char) -> Token<'a> {
         self.advance();
 
         let span = self.span_from(start);
 
-        self.emit_error(UnexpectedCharError {
+        self.push_diagnostic(UnexpectedCharError {
             char: ch,
             at: span.into(),
             src: self.named_source.clone(),
@@ -274,18 +275,18 @@ impl<'a> Lexer<'a> {
         Token::new(TokenKind::Unexpected, span)
     }
 
-    /// Emits an invalid numeric suffix error and returns an error token.
+    /// Creates an `Unexpected` token for a number with an invalid suffix.
     ///
-    /// This consumes the full suffix so input like `123abc` is reported as one
-    /// invalid token instead of separate `123` and `abc` tokens.
-    fn emit_invalid_numeric_suffix(&mut self, start: Cursor) -> Token<'a> {
+    /// The full suffix is consumed so input like `123abc` is reported as one invalid
+    /// token instead of an integer token followed by an identifier token.
+    fn invalid_numeric_suffix_token(&mut self, start: Cursor) -> Token<'a> {
         // Consume the full suffix so `123abc` becomes one error token,
         // not an integer token followed by an identifier token.
         self.read_while(is_ident_continue);
 
         let span = self.span_from(start);
 
-        self.emit_error(InvalidNumericSuffixError {
+        self.push_diagnostic(InvalidNumericSuffixError {
             at: span.into(),
             src: self.named_source.clone(),
         });
@@ -293,10 +294,11 @@ impl<'a> Lexer<'a> {
         Token::new(TokenKind::Unexpected, span)
     }
 
-    /// Emits an incomplete-float error and returns an error token.
+    /// Creates an `Unexpected` token for an incomplete floating-point literal.
     ///
-    /// This is used for numbers ending with a decimal point, such as `123.`.
-    fn emit_incomplete_float(&mut self, start: Cursor) -> Token<'a> {
+    /// This handles numbers ending with a decimal point, such as `123.`. The
+    /// diagnostic includes a suggested `.0` completion.
+    fn incomplete_float_token(&mut self, start: Cursor) -> Token<'a> {
         let span = self.span_from(start);
         let source_span = span.into();
 
@@ -309,7 +311,7 @@ impl<'a> Lexer<'a> {
             val: self.source[span.start..span.end - 1].to_string(),
         };
 
-        self.emit_error(err);
+        self.push_diagnostic(err);
         Token::new(TokenKind::Unexpected, span)
     }
 
@@ -361,7 +363,7 @@ impl<'a> Lexer<'a> {
             '}' => self.lex_single_char_tokens(TokenKind::CloseBrace),
             '[' => self.lex_single_char_tokens(TokenKind::OpenBracket),
             ']' => self.lex_single_char_tokens(TokenKind::CloseBracket),
-            invalid_char => self.emit_unexpected_char(self.cursor, invalid_char),
+            invalid_char => self.unexpected_char_token(self.cursor, invalid_char),
         };
 
         Some(Ok(token))
@@ -395,7 +397,7 @@ impl<'a> Lexer<'a> {
         if let Some(ch) = self.peek()
             && is_ident_start(ch)
         {
-            return self.emit_invalid_numeric_suffix(start);
+            return self.invalid_numeric_suffix_token(start);
         }
         let span = self.span_from(start);
         Token::new(TokenKind::IntLiteral(value), span)
@@ -414,7 +416,7 @@ impl<'a> Lexer<'a> {
         if rest.is_empty() {
             // A decimal point must be followed by at least one digit.
             // For example, `123.` is treated as an incomplete float.
-            return self.emit_incomplete_float(start);
+            return self.incomplete_float_token(start);
         }
 
         if let Some(ch) = self.peek()
@@ -423,7 +425,7 @@ impl<'a> Lexer<'a> {
             // A number cannot be immediately followed by an identifier-like suffix.
             // For example, `123abc` or `123.45abc` should be reported as one
             // invalid numeric token instead of separate number and identifier tokens.
-            return self.emit_invalid_numeric_suffix(start);
+            return self.invalid_numeric_suffix_token(start);
         }
 
         let span = self.span_from(start);
