@@ -3,6 +3,11 @@ use std::sync::Arc;
 use miette::{Diagnostic, NamedSource, SourceSpan};
 use thiserror::Error;
 
+/// Shared source text used by diagnostics.
+///
+/// Each lexer diagnostic needs access to the original source so `miette` can
+/// print labeled spans. `Arc` keeps cloning cheap when multiple diagnostics
+/// refer to the same file.
 pub type SourceFile = Arc<NamedSource<String>>;
 
 /// Represents position of a token in the source file.
