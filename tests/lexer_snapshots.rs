@@ -1,22 +1,38 @@
-use nox_lang::tokenizer::Lexer;
+use nox_lang::tokenizer::{Lexer, TokenKind};
 
 fn snapshot_tokens(source: &str) -> String {
-    let lexer = Lexer::new(source, "main.nox");
-    lexer
-        .map(|r| r.unwrap())
-        .map(|t| {
-            format!(
-                "kind: {:?}\npos:  {}:{}\nrange: [{}..{}]\ntext:  {:?}\n",
-                t.kind,
-                t.span.line,
-                t.span.column,
-                t.span.start,
-                t.span.end,
-                &source[t.span.start..t.span.end]
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
+    let mut lexer = Lexer::new(source, "main.nox");
+    let mut results = Vec::new();
+
+    // Use a loop to avoid iterator lifetime issues
+    while let Some(token_result) = lexer.next() {
+        let t = token_result.expect("Lexer error");
+
+        let kind_str = match &t.kind {
+            TokenKind::Identifier(sym) => {
+                format!("Identifier({:?})", lexer.symbol_registry.resolve(*sym))
+            }
+            TokenKind::IntLiteral(sym) => {
+                format!("IntLiteral({:?})", lexer.symbol_registry.resolve(*sym))
+            }
+            TokenKind::FloatLiteral(sym) => {
+                format!("FloatLiteral({:?})", lexer.symbol_registry.resolve(*sym))
+            }
+            other => format!("{:?}", other),
+        };
+
+        results.push(format!(
+            "kind: {}\npos:  {}:{}\nrange: [{}..{}]\ntext:  {:?}\n",
+            kind_str,
+            t.span.line,
+            t.span.column,
+            t.span.start,
+            t.span.end,
+            &source[t.span.start..t.span.end]
+        ));
+    }
+
+    results.join("\n")
 }
 
 #[test]

@@ -22,7 +22,7 @@ fn main() {
     });
 
     let mut lexer = Lexer::new(&string, file_path);
-    let tokens: Vec<Token<'_>> = match lexer.by_ref().collect::<Result<Vec<_>, _>>() {
+    let tokens: Vec<Token> = match lexer.by_ref().collect::<Result<Vec<_>, _>>() {
         Ok(tokens) => tokens,
         Err(err) => {
             print_collected_errors(&mut lexer);
