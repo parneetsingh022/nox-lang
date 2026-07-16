@@ -863,6 +863,14 @@ print(x);
             let mut lexer = Lexer::new(code, "main.nox");
 
             let t = next_token(&mut lexer);
+
+            match t.kind {
+                TokenKind::Identifier(symbol) => {
+                    assert_eq!(lexer.symbol_registry.resolve(symbol), "hello")
+                }
+                kind => panic!("expected Identifier found, {:?}", kind),
+            }
+
             assert_eq!(t.span, s(5, 10, 2, 3));
         }
 
@@ -872,7 +880,12 @@ print(x);
             let mut lexer = Lexer::new(code, "main.nox");
 
             let t = next_token(&mut lexer);
-
+            match t.kind {
+                TokenKind::Identifier(symbol) => {
+                    assert_eq!(lexer.symbol_registry.resolve(symbol), "abc")
+                }
+                kind => panic!("expected Identifier found, {:?}", kind),
+            }
             // Starts at 2, ends at 5, line 1, column 3
             assert_eq!(t.span, s(2, 5, 1, 3));
         }
