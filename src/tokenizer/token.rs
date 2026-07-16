@@ -1,4 +1,7 @@
-use crate::diagnostic::Span;
+use crate::{
+    diagnostic::Span,
+    tokenizer::{Symbol, SymbolRegistry},
+};
 use phf::phf_map;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -13,12 +16,12 @@ static KEYWORDS: phf::Map<&'static str, Keyword> = phf_map! {
 };
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum TokenKind<'a> {
-    Identifier(&'a str),
+pub enum TokenKind {
+    Identifier(Symbol),
     Keyword(Keyword),
 
-    IntLiteral(&'a str),
-    FloatLiteral(&'a str),
+    IntLiteral(Symbol),
+    FloatLiteral(Symbol),
 
     /// `&&`
     And,
@@ -79,24 +82,41 @@ pub enum TokenKind<'a> {
     Unexpected,
 }
 
-impl<'a> TokenKind<'a> {
-    pub fn map_keyword(keyword: &str) -> Option<TokenKind<'_>> {
+impl TokenKind {
+    pub fn map_keyword(keyword: &str) -> Option<TokenKind> {
         KEYWORDS.get(keyword).copied().map(TokenKind::Keyword)
     }
 
     pub fn is_keyword(&self, kw: Keyword) -> bool {
         matches!(self, TokenKind::Keyword(k) if *k == kw)
     }
+
+    pub fn identifier(registry: &mut SymbolRegistry, value: &str) -> Self {
+        Self::intern(registry, value, Self::Identifier)
+    }
+
+    pub fn int_literal(registry: &mut SymbolRegistry, value: &str) -> TokenKind {
+        Self::intern(registry, value, Self::IntLiteral)
+    }
+
+    pub fn float_literal(registry: &mut SymbolRegistry, value: &str) -> TokenKind {
+        Self::intern(registry, value, Self::FloatLiteral)
+    }
+
+    fn intern(registry: &mut SymbolRegistry, value: &str, constructor: fn(Symbol) -> Self) -> Self {
+        let symbol = registry.store(value);
+        constructor(symbol)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Token<'a> {
-    pub kind: TokenKind<'a>,
+pub struct Token {
+    pub kind: TokenKind,
     pub span: Span,
 }
 
-impl<'a> Token<'a> {
-    pub fn new(kind: TokenKind<'a>, span: Span) -> Self {
+impl Token {
+    pub fn new(kind: TokenKind, span: Span) -> Self {
         Self { kind, span }
     }
 }
