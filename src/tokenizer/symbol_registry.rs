@@ -14,7 +14,7 @@
 //!
 //! This registry acts as the "source of truth" for what a [`Symbol`] represents.
 
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 /// A unique identifier for a string stored in the [`SymbolRegistry`].
 ///
@@ -25,8 +25,10 @@ pub struct Symbol(u32);
 
 /// A central registry for string interning.
 ///
-/// The `SymbolRegistry` ensures that each unique string is stored only once in memory.
-/// It provides a mapping between human-readable strings and unique [`Symbol`] IDs.
+/// The `SymbolRegistry` interns strings and assigns them stable [`Symbol`] IDs.
+/// It uses `Arc<str>` to ensure each unique string is stored in memory exactly
+/// once, while allowing both the reverse lookup table and the primary mapping
+/// to share the same heap-allocated memory.
 ///
 /// # Example
 /// ```
@@ -37,9 +39,9 @@ pub struct Symbol(u32);
 /// ```
 pub struct SymbolRegistry {
     /// Maps the actual string to its unique [`Symbol`].
-    map: HashMap<String, Symbol>,
+    map: HashMap<Arc<str>, Symbol>,
     /// Stores the strings in order, where the index corresponds to the [`Symbol`] ID.
-    strings: Vec<String>,
+    strings: Vec<Arc<str>>,
 }
 
 impl Default for SymbolRegistry {
@@ -68,8 +70,9 @@ impl SymbolRegistry {
         }
 
         let symbol = Symbol(self.strings.len() as u32);
-        self.strings.push(string.to_string());
-        self.map.insert(string.to_string(), symbol);
+        let shared_str: Arc<str> = Arc::from(string);
+        self.strings.push(shared_str.clone());
+        self.map.insert(shared_str, symbol);
 
         symbol
     }

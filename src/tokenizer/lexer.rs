@@ -584,10 +584,9 @@ mod tests {
         // Case 1: Tokens with data (Identifier, IntLiteral, etc.)
         ($lexer:expr, $kind:path, $expected_str:expr) => {
             let token = next_token($lexer);
-            if let $kind(sym) = token.kind {
-                assert_eq!($lexer.symbol_registry.resolve(sym), $expected_str);
-            } else {
-                panic!("Expected variant with data, got {:?}", token.kind);
+            match token.kind {
+                $kind(sym) => assert_eq!($lexer.symbol_registry.resolve(sym), $expected_str),
+                other => panic!("Expected variant with data, got {:?}", other),
             }
         };
         // Case 2: Tokens without data (Keyword, Plus, etc.)
@@ -612,11 +611,12 @@ mod tests {
         let mut lexer = Lexer::new(code, "main.nox");
         let token = next_token(&mut lexer);
 
-        if let TokenKind::Identifier(sym) = token.kind {
-            let value = lexer.symbol_registry.resolve(sym);
-            assert_eq!(code, value);
-        } else {
-            panic!("Expected Identifier, got {:?}", token.kind);
+        match token.kind {
+            TokenKind::Identifier(sym) => {
+                let value = lexer.symbol_registry.resolve(sym);
+                assert_eq!(code, value);
+            }
+            other => panic!("Expected Identifier, got {:?}", other),
         }
         // Verify the lexer reached EOF
         assert_eof(&mut lexer);
