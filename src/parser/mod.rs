@@ -142,7 +142,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_grouped_expression(&mut self) -> Expression {
-        let expression = self.parse_bp(0);
+        let expression = self.parse_expr();
 
         self.expect(
             TokenKind::CloseParen,
@@ -166,7 +166,7 @@ impl<'a> Parser<'a> {
 
         if !self.check(TokenKind::CloseParen) {
             loop {
-                arguments.push(self.parse_bp(0));
+                arguments.push(self.parse_expr());
 
                 if !self.check(TokenKind::Comma) {
                     break;
