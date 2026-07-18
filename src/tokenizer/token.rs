@@ -15,7 +15,7 @@ static KEYWORDS: phf::Map<&'static str, Keyword> = phf_map! {
     "const" => Keyword::Const,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TokenKind {
     Identifier(Symbol),
     Keyword(Keyword),
