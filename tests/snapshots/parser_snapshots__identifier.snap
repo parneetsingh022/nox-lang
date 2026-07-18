@@ -1,0 +1,7 @@
+---
+source: tests/parser_snapshots.rs
+expression: ast
+---
+Identifier(
+    "variable_name",
+)

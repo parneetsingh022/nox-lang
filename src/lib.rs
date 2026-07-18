@@ -1,2 +1,3 @@
 pub mod diagnostic;
-pub mod tokenizer;
+pub mod lexer;
+pub mod parser;

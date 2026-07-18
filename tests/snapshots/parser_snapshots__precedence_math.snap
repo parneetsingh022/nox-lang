@@ -1,0 +1,19 @@
+---
+source: tests/parser_snapshots.rs
+expression: ast
+---
+Binary {
+    left: Identifier(
+        "a",
+    ),
+    op: Plus,
+    right: Binary {
+        left: Identifier(
+            "b",
+        ),
+        op: Multiply,
+        right: Identifier(
+            "c",
+        ),
+    },
+}
