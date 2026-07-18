@@ -1,0 +1,10 @@
+---
+source: tests/parser_snapshots.rs
+expression: ast
+---
+Call {
+    callee: Identifier(
+        "foo",
+    ),
+    arguments: [],
+}

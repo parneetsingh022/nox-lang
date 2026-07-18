@@ -1,6 +1,6 @@
 use crate::{
     diagnostic::Span,
-    tokenizer::{Symbol, SymbolRegistry},
+    lexer::{Symbol, SymbolRegistry},
 };
 use phf::phf_map;
 

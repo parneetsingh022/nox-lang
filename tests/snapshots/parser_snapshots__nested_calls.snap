@@ -1,0 +1,30 @@
+---
+source: tests/parser_snapshots.rs
+expression: ast
+---
+Call {
+    callee: Identifier(
+        "nested",
+    ),
+    arguments: [
+        Call {
+            callee: Identifier(
+                "foo",
+            ),
+            arguments: [],
+        },
+        Call {
+            callee: Identifier(
+                "bar",
+            ),
+            arguments: [
+                IntLiteral(
+                    1,
+                ),
+                IntLiteral(
+                    2,
+                ),
+            ],
+        },
+    ],
+}

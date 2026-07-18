@@ -1,6 +1,6 @@
 use crate::{
+    lexer::{Symbol, SymbolRegistry, Token, TokenKind},
     parser::ast::{BinaryOp, Expression},
-    tokenizer::{Symbol, SymbolRegistry, Token, TokenKind},
 };
 
 pub mod ast;
@@ -62,10 +62,20 @@ impl<'a> Parser<'a> {
         Expression::FloatLiteral(value)
     }
 
+    /// Parses an expression starting at the current token.
+    ///
+    /// This is the main entry point for expression parsing. It starts the Pratt
+    /// parser with the lowest binding power so that the complete expression can
+    /// be parsed.
     pub fn parse_expr(&mut self) -> Expression {
         self.parse_bp(0)
     }
 
+    /// Parses an expression using Pratt parsing.
+    ///
+    /// `min_bp` is the minimum binding power an operator must have to become part
+    /// of the current expression. Operators with lower binding power are left for
+    /// the caller to parse.
     fn parse_bp(&mut self, min_bp: u8) -> Expression {
         let mut lhs = self.parse_prefix_expression();
 
@@ -141,6 +151,11 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// Parses an expression enclosed in parentheses.
+    ///
+    /// The opening ( is consumed by the caller before this method is invoked.
+    /// This method parses the expression inside the parentheses and then requires
+    /// a matching closing ).
     fn parse_grouped_expression(&mut self) -> Expression {
         let expression = self.parse_expr();
 
@@ -185,5 +200,137 @@ impl<'a> Parser<'a> {
             callee: Box::new(callee),
             arguments,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::lexer::Lexer;
+    use rstest::rstest;
+
+    fn parse_expression(source: &str) -> Expression {
+        let mut lexer = Lexer::new(source, "main.nox");
+
+        let tokens = lexer.by_ref().map(|tok| tok.unwrap()).collect::<Vec<_>>();
+
+        let mut parser = Parser::new(&tokens, &lexer.symbol_registry);
+
+        parser.parse_expr()
+    }
+
+    fn int(value: i64) -> Expression {
+        Expression::IntLiteral(value)
+    }
+
+    fn float(value: f64) -> Expression {
+        Expression::FloatLiteral(value)
+    }
+
+    fn binary(left: Expression, op: BinaryOp, right: Expression) -> Expression {
+        Expression::Binary {
+            left: Box::new(left),
+            op,
+            right: Box::new(right),
+        }
+    }
+
+    #[rstest]
+    #[case("42", int(42))]
+    #[case("0", int(0))]
+    #[allow(clippy::approx_constant)]
+    #[case("3.14", float(3.14))]
+    #[case("0.5", float(0.5))]
+    fn parses_literals(#[case] source: &str, #[case] expected: Expression) {
+        assert_eq!(parse_expression(source), expected);
+    }
+
+    #[rstest]
+    #[case("1 + 2", BinaryOp::Plus)]
+    #[case("1 - 2", BinaryOp::Minus)]
+    #[case("1 * 2", BinaryOp::Multiply)]
+    #[case("1 / 2", BinaryOp::Divide)]
+    fn parses_binary_operators(#[case] source: &str, #[case] op: BinaryOp) {
+        let expected = binary(int(1), op, int(2));
+
+        assert_eq!(parse_expression(source), expected);
+    }
+
+    #[test]
+    fn multiplication_binds_tighter_than_addition() {
+        let expression = parse_expression("1 + 2 * 3");
+
+        let expected = binary(
+            int(1),
+            BinaryOp::Plus,
+            binary(int(2), BinaryOp::Multiply, int(3)),
+        );
+
+        assert_eq!(expression, expected);
+    }
+
+    #[test]
+    fn division_binds_tighter_than_subtraction() {
+        let expression = parse_expression("10 - 8 / 2");
+
+        let expected = binary(
+            int(10),
+            BinaryOp::Minus,
+            binary(int(8), BinaryOp::Divide, int(2)),
+        );
+
+        assert_eq!(expression, expected);
+    }
+
+    #[test]
+    fn addition_is_left_associative() {
+        let expression = parse_expression("1 + 2 + 3");
+
+        let expected = binary(
+            binary(int(1), BinaryOp::Plus, int(2)),
+            BinaryOp::Plus,
+            int(3),
+        );
+
+        assert_eq!(expression, expected);
+    }
+
+    #[test]
+    fn subtraction_is_left_associative() {
+        let expression = parse_expression("10 - 5 - 2");
+
+        let expected = binary(
+            binary(int(10), BinaryOp::Minus, int(5)),
+            BinaryOp::Minus,
+            int(2),
+        );
+
+        assert_eq!(expression, expected);
+    }
+
+    #[test]
+    fn grouped_expression_overrides_precedence() {
+        let expression = parse_expression("(1 + 2) * 3");
+
+        let expected = binary(
+            binary(int(1), BinaryOp::Plus, int(2)),
+            BinaryOp::Multiply,
+            int(3),
+        );
+
+        assert_eq!(expression, expected);
+    }
+
+    #[test]
+    fn nested_groups_are_parsed() {
+        let expression = parse_expression("((1 + 2) * 3)");
+
+        let expected = binary(
+            binary(int(1), BinaryOp::Plus, int(2)),
+            BinaryOp::Multiply,
+            int(3),
+        );
+
+        assert_eq!(expression, expected);
     }
 }

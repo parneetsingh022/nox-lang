@@ -1,4 +1,4 @@
-use nox_lang::tokenizer::{Lexer, TokenKind};
+use nox_lang::lexer::{Lexer, TokenKind};
 
 fn snapshot_tokens(source: &str) -> String {
     let mut lexer = Lexer::new(source, "main.nox");

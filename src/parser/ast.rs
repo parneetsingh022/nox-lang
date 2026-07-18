@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::tokenizer::{Symbol, SymbolRegistry, Token, TokenKind};
+use crate::lexer::{Symbol, SymbolRegistry, Token, TokenKind};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BinaryOp {

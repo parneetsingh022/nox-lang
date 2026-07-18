@@ -1,8 +1,8 @@
 use std::{env, fs, process};
 
+use nox_lang::lexer::Lexer;
+use nox_lang::lexer::Token;
 use nox_lang::parser::Parser;
-use nox_lang::tokenizer::Lexer;
-use nox_lang::tokenizer::Token;
 
 fn main() {
     // Collect arguments from the command line

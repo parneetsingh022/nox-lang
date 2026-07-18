@@ -1,13 +1,16 @@
+pub mod symbol_registry;
+pub mod token;
+
+pub use symbol_registry::{Symbol, SymbolRegistry};
+pub use token::{Keyword, Token, TokenKind};
+
 use std::sync::Arc;
 
 use miette::{NamedSource, SourceSpan};
 
-use crate::{
-    diagnostic::{
-        IncompleteFloatError, InvalidNumericSuffixError, LexerError, SourceFile, Span,
-        UnexpectedCharError, UnterminatedCommentError,
-    },
-    tokenizer::{SymbolRegistry, Token, TokenKind},
+use crate::diagnostic::{
+    IncompleteFloatError, InvalidNumericSuffixError, LexerError, SourceFile, Span,
+    UnexpectedCharError, UnterminatedCommentError,
 };
 
 /// Returns whether the byte is ASCII whitespace.
@@ -120,6 +123,10 @@ impl<'a> Lexer<'a> {
     /// error list.
     pub fn take_errors(&mut self) -> Vec<LexerError> {
         std::mem::take(&mut self.errors)
+    }
+
+    pub fn take_registry(&mut self) -> SymbolRegistry {
+        std::mem::take(&mut self.symbol_registry)
     }
 
     fn is_eof(&self) -> bool {
@@ -578,7 +585,7 @@ mod tests {
     use super::*;
     use rstest::rstest;
 
-    use crate::tokenizer::Keyword;
+    use crate::lexer::Keyword;
 
     macro_rules! assert_token {
         // Case 1: Tokens with data (Identifier, IntLiteral, etc.)
