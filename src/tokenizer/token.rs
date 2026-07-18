@@ -1,6 +1,6 @@
 use crate::{
     diagnostic::Span,
-    lexer::{Symbol, SymbolRegistry},
+    tokenizer::{Symbol, SymbolRegistry},
 };
 use phf::phf_map;
 
@@ -15,7 +15,7 @@ static KEYWORDS: phf::Map<&'static str, Keyword> = phf_map! {
     "const" => Keyword::Const,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TokenKind {
     Identifier(Symbol),
     Keyword(Keyword),

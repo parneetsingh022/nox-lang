@@ -1,8 +1,7 @@
 use std::{env, fs, process};
 
-use nox_lang::lexer::Lexer;
-use nox_lang::lexer::Token;
-use nox_lang::parser::Parser;
+use nox_lang::tokenizer::Lexer;
+use nox_lang::tokenizer::Token;
 
 fn main() {
     // Collect arguments from the command line
@@ -36,9 +35,9 @@ fn main() {
         std::process::exit(1);
     }
 
-    let mut parser = Parser::new(&tokens, &lexer.symbol_registry);
-    let exp = parser.parse_expr();
-    println!("{:#?}", exp.debug_with(&lexer.symbol_registry));
+    for tok in tokens {
+        println!("{:?}", tok);
+    }
 }
 
 /// Prints all error collected by lexer.

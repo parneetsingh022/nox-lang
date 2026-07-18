@@ -32,7 +32,7 @@ pub struct Symbol(u32);
 ///
 /// # Example
 /// ```
-/// # use nox_lang::lexer::SymbolRegistry;
+/// # use nox_lang::tokenizer::SymbolRegistry;
 /// let mut registry = SymbolRegistry::new();
 /// let sym = registry.store("variable_name");
 /// assert_eq!(registry.resolve(sym), "variable_name");

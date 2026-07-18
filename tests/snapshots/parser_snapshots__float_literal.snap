@@ -1,7 +1,0 @@
----
-source: tests/parser_snapshots.rs
-expression: ast
----
-FloatLiteral(
-    3.14159,
-)
