@@ -93,3 +93,73 @@ impl fmt::Debug for ExpressionDebug<'_> {
         }
     }
 }
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Statement {
+    Let { name: Symbol, expr: Expression },
+}
+
+impl Statement {
+    pub fn debug_with<'a>(&'a self, reg: &'a SymbolRegistry) -> StatementDebug<'a> {
+        StatementDebug {
+            statement: self,
+            reg,
+        }
+    }
+}
+
+pub struct StatementDebug<'a> {
+    statement: &'a Statement,
+    reg: &'a SymbolRegistry,
+}
+
+impl fmt::Debug for StatementDebug<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.statement {
+            Statement::Let { name, expr } => {
+                let name = self.reg.resolve(*name);
+
+                f.debug_struct("Let")
+                    .field("name", &name)
+                    .field("expr", &expr.debug_with(self.reg))
+                    .finish()
+            }
+        }
+    }
+}
+
+#[derive(Debug, Default, PartialEq, Clone)]
+pub struct Program {
+    statements: Vec<Statement>,
+}
+
+impl Program {
+    pub fn push(&mut self, statement: Statement) {
+        self.statements.push(statement);
+    }
+
+    pub fn debug_with<'a>(&'a self, reg: &'a SymbolRegistry) -> ProgramDebug<'a> {
+        ProgramDebug { program: self, reg }
+    }
+}
+
+pub struct ProgramDebug<'a> {
+    program: &'a Program,
+    reg: &'a SymbolRegistry,
+}
+
+impl fmt::Debug for ProgramDebug<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Map the internal statements to their debug-capable wrappers
+        let statements: Vec<_> = self
+            .program
+            .statements
+            .iter()
+            .map(|stmt| stmt.debug_with(self.reg))
+            .collect();
+
+        f.debug_struct("Program")
+            .field("statements", &statements)
+            .finish()
+    }
+}

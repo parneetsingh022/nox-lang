@@ -37,8 +37,9 @@ fn main() {
     }
 
     let mut parser = Parser::new(&tokens, &lexer.symbol_registry);
-    let exp = parser.parse_expr();
-    println!("{:#?}", exp.debug_with(&lexer.symbol_registry));
+    parser.parse();
+    let program = parser.take_program();
+    println!("{:#?}", program.debug_with(&lexer.symbol_registry));
 }
 
 /// Prints all error collected by lexer.

@@ -1,12 +1,19 @@
 pub mod ast;
 pub mod expression;
+pub mod statements;
 
-use crate::lexer::{SymbolRegistry, Token, TokenKind};
+use std::panic;
+
+use crate::{
+    lexer::{Keyword, Symbol, SymbolRegistry, Token, TokenKind},
+    parser::ast::Program,
+};
 
 pub struct Parser<'a> {
     tokens: &'a [Token],
     symbol_registry: &'a SymbolRegistry,
     pos: usize,
+    program: Program,
 }
 
 impl<'a> Parser<'a> {
@@ -15,7 +22,23 @@ impl<'a> Parser<'a> {
             tokens,
             pos: 0,
             symbol_registry,
+            program: Program::default(),
         }
+    }
+
+    pub fn parse(&mut self) {
+        while !self.is_eof() {
+            let statement = self.parse_statement();
+            self.program.push(statement);
+        }
+    }
+
+    pub fn take_program(&mut self) -> Program {
+        std::mem::take(&mut self.program)
+    }
+
+    fn is_eof(&self) -> bool {
+        self.tokens.len() <= self.pos
     }
 
     fn peek(&self) -> Option<&Token> {
@@ -37,6 +60,24 @@ impl<'a> Parser<'a> {
             self.advance().unwrap()
         } else {
             panic!("{message}");
+        }
+    }
+    fn expect_keyword(&mut self, message: &str) -> Keyword {
+        match self.advance().map(|token| token.kind) {
+            Some(TokenKind::Keyword(keyword)) => keyword,
+            Some(kind) => panic!("{message}, found {kind:?}"),
+            None => panic!("{message}, found EOF"),
+        }
+    }
+
+    fn expect_identifier(&mut self, message: &str) -> Symbol {
+        let Some(token) = self.advance() else {
+            panic!("{message}, got EOF");
+        };
+
+        match token.kind {
+            TokenKind::Identifier(symbol) => symbol,
+            _ => panic!("{message}, got: {:?}", token.kind),
         }
     }
 }
