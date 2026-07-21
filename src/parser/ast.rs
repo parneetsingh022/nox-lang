@@ -55,6 +55,10 @@ impl BinaryOp {
 // ============================================================================
 
 /// Represents an expression node in the Abstract Syntax Tree (AST).
+///
+/// Note: Source code spans (`span`) are excluded from equality (`PartialEq`)
+/// comparisons so that structurally identical expressions match regardless of
+/// where they appeared in the source file.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
     /// A 64-bit signed integer literal (e.g., `42`).
