@@ -1,6 +1,9 @@
 use std::fmt;
 
-use crate::lexer::{Symbol, SymbolRegistry, Token, TokenKind};
+use crate::{
+    diagnostic::Span,
+    lexer::{Symbol, SymbolRegistry, Token, TokenKind},
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BinaryOp {
@@ -32,26 +35,94 @@ impl BinaryOp {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum Expression {
-    IntLiteral(i64),
-    FloatLiteral(f64),
-    Identifier(Symbol),
+    IntLiteral {
+        value: i64,
+        span: Span,
+    },
+    FloatLiteral {
+        value: f64,
+        span: Span,
+    },
+    Identifier {
+        symbol: Symbol,
+        span: Span,
+    },
     Binary {
         left: Box<Expression>,
         op: BinaryOp,
         right: Box<Expression>,
+        span: Span,
     },
 
     Call {
         callee: Box<Expression>,
         arguments: Vec<Expression>,
+        span: Span,
     },
 }
 
 impl Expression {
+    /// Returns the source code span for any expression variant.
+    pub fn span(&self) -> Span {
+        match self {
+            Expression::IntLiteral { span, .. } => *span,
+            Expression::FloatLiteral { span, .. } => *span,
+            Expression::Identifier { span, .. } => *span,
+            Expression::Binary { span, .. } => *span,
+            Expression::Call { span, .. } => *span,
+        }
+    }
+
     pub fn debug_with<'a>(&'a self, reg: &'a SymbolRegistry) -> ExpressionDebug<'a> {
         ExpressionDebug { expr: self, reg }
+    }
+}
+
+impl PartialEq for Expression {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (
+                Expression::IntLiteral { value: v1, .. },
+                Expression::IntLiteral { value: v2, .. },
+            ) => v1 == v2,
+            (
+                Expression::FloatLiteral { value: v1, .. },
+                Expression::FloatLiteral { value: v2, .. },
+            ) => v1 == v2,
+            (
+                Expression::Identifier { symbol: s1, .. },
+                Expression::Identifier { symbol: s2, .. },
+            ) => s1 == s2,
+            (
+                Expression::Binary {
+                    left: l1,
+                    op: op1,
+                    right: r1,
+                    ..
+                },
+                Expression::Binary {
+                    left: l2,
+                    op: op2,
+                    right: r2,
+                    ..
+                },
+            ) => op1 == op2 && l1 == l2 && r1 == r2,
+            (
+                Expression::Call {
+                    callee: c1,
+                    arguments: a1,
+                    ..
+                },
+                Expression::Call {
+                    callee: c2,
+                    arguments: a2,
+                    ..
+                },
+            ) => c1 == c2 && a1 == a2,
+            _ => false,
+        }
     }
 }
 
@@ -63,23 +134,31 @@ pub struct ExpressionDebug<'a> {
 impl fmt::Debug for ExpressionDebug<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.expr {
-            Expression::IntLiteral(value) => f.debug_tuple("IntLiteral").field(value).finish(),
-            Expression::FloatLiteral(value) => f.debug_tuple("FloatLiteral").field(value).finish(),
+            Expression::IntLiteral { value, .. } => {
+                f.debug_tuple("IntLiteral").field(value).finish()
+            }
+            Expression::FloatLiteral { value, .. } => {
+                f.debug_tuple("FloatLiteral").field(value).finish()
+            }
 
-            Expression::Identifier(symbol) => {
+            Expression::Identifier { symbol, .. } => {
                 let name = self.reg.resolve(*symbol);
 
                 f.debug_tuple("Identifier").field(&name).finish()
             }
 
-            Expression::Binary { left, op, right } => f
+            Expression::Binary {
+                left, op, right, ..
+            } => f
                 .debug_struct("Binary")
                 .field("left", &left.debug_with(self.reg))
                 .field("op", op)
                 .field("right", &right.debug_with(self.reg))
                 .finish(),
 
-            Expression::Call { callee, arguments } => {
+            Expression::Call {
+                callee, arguments, ..
+            } => {
                 let arguments = arguments
                     .iter()
                     .map(|argument| argument.debug_with(self.reg))
@@ -96,7 +175,11 @@ impl fmt::Debug for ExpressionDebug<'_> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
-    Let { name: Symbol, expr: Expression },
+    Let {
+        name: Symbol,
+        expr: Expression,
+        span: Span,
+    },
 }
 
 impl Statement {
@@ -116,7 +199,7 @@ pub struct StatementDebug<'a> {
 impl fmt::Debug for StatementDebug<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.statement {
-            Statement::Let { name, expr } => {
+            Statement::Let { name, expr, .. } => {
                 let name = self.reg.resolve(*name);
 
                 f.debug_struct("Let")

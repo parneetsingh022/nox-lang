@@ -1,3 +1,4 @@
+use crate::diagnostic::Span;
 use crate::parser::Parser;
 
 use crate::{
@@ -6,24 +7,24 @@ use crate::{
 };
 
 impl<'a> Parser<'a> {
-    fn parse_integer_literal(&self, symbol: Symbol) -> Expression {
+    fn parse_integer_literal(&self, symbol: Symbol, span: Span) -> Expression {
         let value = self
             .symbol_registry
             .resolve(symbol)
             .parse::<i64>()
             .expect("Lexer produced an invalid integer literal");
 
-        Expression::IntLiteral(value)
+        Expression::IntLiteral { value, span }
     }
 
-    fn parse_float_literal(&self, symbol: Symbol) -> Expression {
+    fn parse_float_literal(&self, symbol: Symbol, span: Span) -> Expression {
         let value = self
             .symbol_registry
             .resolve(symbol)
             .parse::<f64>()
             .expect("Lexer produced an invalid float literal");
 
-        Expression::FloatLiteral(value)
+        Expression::FloatLiteral { value, span }
     }
 
     /// Parses an expression starting at the current token.
@@ -77,15 +78,15 @@ impl<'a> Parser<'a> {
     /// For example, when parsing 1 + 2, this method first parses 1 before the
     /// parser continues with the + operator.
     fn parse_prefix_expression(&mut self) -> Expression {
-        let kind = self
-            .advance()
-            .map(|token| token.kind)
-            .expect("Expected token find eof!");
-
-        match kind {
-            TokenKind::IntLiteral(symbol) => self.parse_integer_literal(symbol),
-            TokenKind::FloatLiteral(symbol) => self.parse_float_literal(symbol),
-            TokenKind::Identifier(symbol) => Expression::Identifier(symbol),
+        let token = self.advance().expect("Expected token find eof!");
+        let span = token.span;
+        match token.kind {
+            TokenKind::IntLiteral(symbol) => self.parse_integer_literal(symbol, span),
+            TokenKind::FloatLiteral(symbol) => self.parse_float_literal(symbol, span),
+            TokenKind::Identifier(symbol) => Expression::Identifier {
+                symbol,
+                span: token.span,
+            },
             TokenKind::OpenParen => self.parse_grouped_expression(),
             _ => panic!("Unexpected token!"),
         }
@@ -107,11 +108,12 @@ impl<'a> Parser<'a> {
         right_bp: u8,
     ) -> Expression {
         let rhs = self.parse_bp(right_bp);
-
+        let span = lhs.span().to(rhs.span());
         Expression::Binary {
             left: Box::new(lhs),
             op,
             right: Box::new(rhs),
+            span,
         }
     }
 
@@ -155,14 +157,16 @@ impl<'a> Parser<'a> {
             }
         }
 
-        self.expect(
+        let close_pren_token = self.expect(
             TokenKind::CloseParen,
             "Expected `)` after function arguments",
         );
 
+        let span = callee.span().to(close_pren_token.span);
         Expression::Call {
             callee: Box::new(callee),
             arguments,
+            span,
         }
     }
 }
@@ -184,11 +188,17 @@ mod tests {
     }
 
     fn int(value: i64) -> Expression {
-        Expression::IntLiteral(value)
+        Expression::IntLiteral {
+            value,
+            span: Span::default(),
+        }
     }
 
     fn float(value: f64) -> Expression {
-        Expression::FloatLiteral(value)
+        Expression::FloatLiteral {
+            value,
+            span: Span::default(),
+        }
     }
 
     fn binary(left: Expression, op: BinaryOp, right: Expression) -> Expression {
@@ -196,6 +206,7 @@ mod tests {
             left: Box::new(left),
             op,
             right: Box::new(right),
+            span: Span::default(),
         }
     }
 

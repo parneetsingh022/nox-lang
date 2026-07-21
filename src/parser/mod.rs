@@ -5,7 +5,7 @@ pub mod statements;
 use std::panic;
 
 use crate::{
-    lexer::{Keyword, Symbol, SymbolRegistry, Token, TokenKind},
+    lexer::{Symbol, SymbolRegistry, Token, TokenKind},
     parser::ast::Program,
 };
 
@@ -62,9 +62,11 @@ impl<'a> Parser<'a> {
             panic!("{message}");
         }
     }
-    fn expect_keyword(&mut self, message: &str) -> Keyword {
-        match self.advance().map(|token| token.kind) {
-            Some(TokenKind::Keyword(keyword)) => keyword,
+
+    fn expect_keyword(&mut self, message: &str) -> &Token {
+        let token = self.advance();
+        match token.map(|token| token.kind) {
+            Some(TokenKind::Keyword(_)) => token.unwrap(),
             Some(kind) => panic!("{message}, found {kind:?}"),
             None => panic!("{message}, found EOF"),
         }

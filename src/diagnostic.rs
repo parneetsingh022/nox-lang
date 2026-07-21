@@ -26,6 +26,17 @@ pub struct Span {
     pub column: usize,
 }
 
+impl Default for Span {
+    fn default() -> Self {
+        Self {
+            start: 0,
+            end: 0,
+            line: 1,
+            column: 1,
+        }
+    }
+}
+
 impl Span {
     pub fn new(start: usize, end: usize, line: usize, column: usize) -> Self {
         Self {
@@ -33,6 +44,19 @@ impl Span {
             end,
             line,
             column,
+        }
+    }
+
+    /// Creates a new `Span` that spans from the start of `self` to the end of `other`.
+    ///
+    /// This is typically used by the parser to combine the starting and ending tokens
+    /// (or child AST nodes) of a larger expression or statement into a single bounding span.
+    pub fn to(self, other: Span) -> Span {
+        Span {
+            start: self.start,
+            end: other.end,
+            line: self.line,
+            column: self.column,
         }
     }
 }
