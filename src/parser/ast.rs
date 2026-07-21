@@ -1,3 +1,6 @@
+//! Abstract Syntax Tree (AST) definitions for operators, expressions, and statements.
+
+use derive_more::PartialEq;
 use std::fmt;
 
 use crate::{
@@ -5,6 +8,11 @@ use crate::{
     lexer::{Symbol, SymbolRegistry, Token, TokenKind},
 };
 
+// ============================================================================
+// Operators
+// ============================================================================
+
+/// Represents binary mathematical operators supported by the language.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BinaryOp {
     Plus,
@@ -14,6 +22,10 @@ pub enum BinaryOp {
 }
 
 impl BinaryOp {
+    /// Returns the binding power (precedence tuple) for the operator.
+    ///
+    /// The tuple consists of `(left_power, right_power)`, which is used
+    /// in Pratt parsers to determine associativity and precedence.
     pub fn binding_power(self) -> (u8, u8) {
         match self {
             // Left Associative
@@ -22,6 +34,9 @@ impl BinaryOp {
         }
     }
 
+    /// Attempts to convert a lexical token into a corresponding `BinaryOp`.
+    ///
+    /// Returns `None` if the token does not represent a valid binary operator.
     pub fn from_token(token: &Token) -> Option<BinaryOp> {
         let op = match token.kind {
             TokenKind::Plus => BinaryOp::Plus,
@@ -35,30 +50,48 @@ impl BinaryOp {
     }
 }
 
-#[derive(Debug, Clone)]
+// ============================================================================
+// Expressions
+// ============================================================================
+
+/// Represents an expression node in the Abstract Syntax Tree (AST).
+#[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
+    /// A 64-bit signed integer literal (e.g., `42`).
     IntLiteral {
         value: i64,
+        #[partial_eq(skip)]
         span: Span,
     },
+
+    /// A 64-bit floating-point literal (e.g., `3.14`).
     FloatLiteral {
         value: f64,
+        #[partial_eq(skip)]
         span: Span,
     },
+
+    /// An identifier reference, resolved via the symbol registry.
     Identifier {
         symbol: Symbol,
+        #[partial_eq(skip)]
         span: Span,
     },
+
+    /// A binary operation expression (e.g., `a + b`).
     Binary {
         left: Box<Expression>,
         op: BinaryOp,
         right: Box<Expression>,
+        #[partial_eq(skip)]
         span: Span,
     },
 
+    /// A function call (e.g., `foo(a, b)`).
     Call {
         callee: Box<Expression>,
         arguments: Vec<Expression>,
+        #[partial_eq(skip)]
         span: Span,
     },
 }
@@ -67,64 +100,58 @@ impl Expression {
     /// Returns the source code span for any expression variant.
     pub fn span(&self) -> Span {
         match self {
-            Expression::IntLiteral { span, .. } => *span,
-            Expression::FloatLiteral { span, .. } => *span,
-            Expression::Identifier { span, .. } => *span,
-            Expression::Binary { span, .. } => *span,
-            Expression::Call { span, .. } => *span,
+            Self::IntLiteral { span, .. }
+            | Self::FloatLiteral { span, .. }
+            | Self::Identifier { span, .. }
+            | Self::Binary { span, .. }
+            | Self::Call { span, .. } => *span,
         }
     }
 
+    /// Creates a helper wrapper to debug-print the expression using a symbol registry
+    /// to resolve identifiers into human-readable strings.
     pub fn debug_with<'a>(&'a self, reg: &'a SymbolRegistry) -> ExpressionDebug<'a> {
         ExpressionDebug { expr: self, reg }
     }
 }
 
-impl PartialEq for Expression {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (
-                Expression::IntLiteral { value: v1, .. },
-                Expression::IntLiteral { value: v2, .. },
-            ) => v1 == v2,
-            (
-                Expression::FloatLiteral { value: v1, .. },
-                Expression::FloatLiteral { value: v2, .. },
-            ) => v1 == v2,
-            (
-                Expression::Identifier { symbol: s1, .. },
-                Expression::Identifier { symbol: s2, .. },
-            ) => s1 == s2,
-            (
-                Expression::Binary {
-                    left: l1,
-                    op: op1,
-                    right: r1,
-                    ..
-                },
-                Expression::Binary {
-                    left: l2,
-                    op: op2,
-                    right: r2,
-                    ..
-                },
-            ) => op1 == op2 && l1 == l2 && r1 == r2,
-            (
-                Expression::Call {
-                    callee: c1,
-                    arguments: a1,
-                    ..
-                },
-                Expression::Call {
-                    callee: c2,
-                    arguments: a2,
-                    ..
-                },
-            ) => c1 == c2 && a1 == a2,
-            _ => false,
+// ============================================================================
+// Statements & Program
+// ============================================================================
+
+/// Represents a statement node in the Abstract Syntax Tree (AST).
+#[derive(Debug, Clone, PartialEq)]
+pub enum Statement {
+    Let {
+        name: Symbol,
+        expr: Expression,
+
+        #[partial_eq(skip)]
+        span: Span,
+    },
+}
+
+impl Statement {
+    /// Returns the source code span for any statement variant.
+    pub fn span(&self) -> Span {
+        match self {
+            Self::Let { span, .. } => *span,
+        }
+    }
+
+    /// Creates a helper wrapper to debug-print the statement using a symbol registry
+    /// to resolve identifiers into human-readable strings.
+    pub fn debug_with<'a>(&'a self, reg: &'a SymbolRegistry) -> StatementDebug<'a> {
+        StatementDebug {
+            statement: self,
+            reg,
         }
     }
 }
+
+// ============================================================================
+// Debug Printing Helpers
+// ============================================================================
 
 pub struct ExpressionDebug<'a> {
     expr: &'a Expression,
@@ -169,24 +196,6 @@ impl fmt::Debug for ExpressionDebug<'_> {
                     .field("arguments", &arguments)
                     .finish()
             }
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Statement {
-    Let {
-        name: Symbol,
-        expr: Expression,
-        span: Span,
-    },
-}
-
-impl Statement {
-    pub fn debug_with<'a>(&'a self, reg: &'a SymbolRegistry) -> StatementDebug<'a> {
-        StatementDebug {
-            statement: self,
-            reg,
         }
     }
 }
