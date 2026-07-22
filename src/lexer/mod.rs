@@ -347,8 +347,8 @@ impl<'a> Lexer<'a> {
             _ if ch.is_ascii_digit() => self.lex_number(),
 
             // Double char tokens
-            _ if self.starts_with("&&") => self.lex_double_char_tokens(TokenKind::And),
-            _ if self.starts_with("||") => self.lex_double_char_tokens(TokenKind::Or),
+            _ if self.starts_with("&&") => self.lex_double_char_token(TokenKind::And),
+            _ if self.starts_with("||") => self.lex_double_char_token(TokenKind::Or),
 
             // Potential two character symbols
             '+' => self.lex_compound_operator('+', TokenKind::PlusPlus, TokenKind::Plus),
@@ -359,19 +359,19 @@ impl<'a> Lexer<'a> {
             '>' => self.lex_compound_operator('=', TokenKind::GtEq, TokenKind::Gt),
 
             // Single char symbols
-            '*' => self.lex_single_char_tokens(TokenKind::Star),
-            '/' => self.lex_single_char_tokens(TokenKind::Slash),
-            '%' => self.lex_single_char_tokens(TokenKind::Percent),
-            '^' => self.lex_single_char_tokens(TokenKind::Caret),
-            ';' => self.lex_single_char_tokens(TokenKind::Semi),
-            ',' => self.lex_single_char_tokens(TokenKind::Comma),
-            '.' => self.lex_single_char_tokens(TokenKind::Dot),
-            '(' => self.lex_single_char_tokens(TokenKind::OpenParen),
-            ')' => self.lex_single_char_tokens(TokenKind::CloseParen),
-            '{' => self.lex_single_char_tokens(TokenKind::OpenBrace),
-            '}' => self.lex_single_char_tokens(TokenKind::CloseBrace),
-            '[' => self.lex_single_char_tokens(TokenKind::OpenBracket),
-            ']' => self.lex_single_char_tokens(TokenKind::CloseBracket),
+            '*' => self.lex_single_char_token(TokenKind::Star),
+            '/' => self.lex_single_char_token(TokenKind::Slash),
+            '%' => self.lex_single_char_token(TokenKind::Percent),
+            '^' => self.lex_single_char_token(TokenKind::Caret),
+            ';' => self.lex_single_char_token(TokenKind::Semi),
+            ',' => self.lex_single_char_token(TokenKind::Comma),
+            '.' => self.lex_single_char_token(TokenKind::Dot),
+            '(' => self.lex_single_char_token(TokenKind::OpenParen),
+            ')' => self.lex_single_char_token(TokenKind::CloseParen),
+            '{' => self.lex_single_char_token(TokenKind::OpenBrace),
+            '}' => self.lex_single_char_token(TokenKind::CloseBrace),
+            '[' => self.lex_single_char_token(TokenKind::OpenBracket),
+            ']' => self.lex_single_char_token(TokenKind::CloseBracket),
             invalid_char => self.unexpected_char_token(self.cursor, invalid_char),
         };
 
@@ -455,7 +455,7 @@ impl<'a> Lexer<'a> {
     /// Captures the cursor position, consumes the current character by advancing,
     /// and then constructs a new token using the span from the captured start
     /// position to the new cursor position.
-    fn lex_single_char_tokens(&mut self, kind: TokenKind) -> Token {
+    fn lex_single_char_token(&mut self, kind: TokenKind) -> Token {
         let start = self.cursor;
         self.advance();
         Token::new(kind, self.span_from(start))
@@ -466,7 +466,7 @@ impl<'a> Lexer<'a> {
     /// Captures the cursor position, consumes the next two character by advancing,
     /// and then constructs a new token using the span from the captured start
     /// position to the new cursor position.
-    fn lex_double_char_tokens(&mut self, kind: TokenKind) -> Token {
+    fn lex_double_char_token(&mut self, kind: TokenKind) -> Token {
         let start = self.cursor;
         self.advance_n(2);
         Token::new(kind, self.span_from(start))
