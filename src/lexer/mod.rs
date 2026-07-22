@@ -351,12 +351,12 @@ impl<'a> Lexer<'a> {
             _ if self.starts_with("||") => self.lex_double_char_tokens(TokenKind::Or),
 
             // Potential two character symbols
-            '+' => self.lex_plus_or_plus_plus(),
-            '-' => self.lex_minus_or_minus_minus(),
-            '=' => self.lex_eq_or_eqeq(),
-            '!' => self.lex_bang_or_bangeq(),
-            '<' => self.lex_lt_or_lteq(),
-            '>' => self.lex_gt_or_gteq(),
+            '+' => self.lex_compound_operator('+', TokenKind::PlusPlus, TokenKind::Plus),
+            '-' => self.lex_compound_operator('-', TokenKind::MinusMinus, TokenKind::Minus),
+            '=' => self.lex_compound_operator('=', TokenKind::EqEq, TokenKind::Eq),
+            '!' => self.lex_compound_operator('=', TokenKind::BangEq, TokenKind::Bang),
+            '<' => self.lex_compound_operator('=', TokenKind::LtEq, TokenKind::Lt),
+            '>' => self.lex_compound_operator('=', TokenKind::GtEq, TokenKind::Gt),
 
             // Single char symbols
             '*' => self.lex_single_char_tokens(TokenKind::Star),
@@ -472,108 +472,27 @@ impl<'a> Lexer<'a> {
         Token::new(kind, self.span_from(start))
     }
 
-    /// Lexes a `+` or `++` token.
+    /// Lexes an operator that may have a one- or two-character form.
     ///
-    /// Consumes the leading `+` and looks ahead to determine if it is followed
-    /// by another `+`. If so, it consumes the second character and returns
-    /// a `PlusPlus` token; otherwise, it returns a `Plus` token.
-    fn lex_plus_or_plus_plus(&mut self) -> Token {
-        // We expect current token to be `+`, so we skip it
+    /// After consuming the first character, this method checks whether the next
+    /// character matches `expected_second`. If it does, the operator is emitted
+    /// with `compound_kind`; otherwise, it is emitted with `single_kind`.
+    ///
+    /// Examples include `+` and `++`, `-` and `--`, and `=` and `==`.
+    fn lex_compound_operator(
+        &mut self,
+        expected: char,
+        compound_kind: TokenKind,
+        single_kind: TokenKind,
+    ) -> Token {
         let start = self.cursor;
+        // Consume the first character, which was already matched by the caller.
         self.advance();
 
-        let token_kind = if self.consume_if('+') {
-            TokenKind::PlusPlus
+        let kind = if self.consume_if(expected) {
+            compound_kind
         } else {
-            TokenKind::Plus
-        };
-
-        Token::new(token_kind, self.span_from(start))
-    }
-
-    /// Lexes a `-` or `--` token.
-    ///
-    /// Consumes the leading `-` and looks ahead to determine if it is followed
-    /// by another `-`. If so, it consumes the second character and returns
-    /// a `MinusMinus` token; otherwise, it returns a `Minus` token.
-    fn lex_minus_or_minus_minus(&mut self) -> Token {
-        // We expect current token to be `-`, so we skip it
-        let start = self.cursor;
-        self.advance();
-
-        let token_kind = if self.consume_if('-') {
-            TokenKind::MinusMinus
-        } else {
-            TokenKind::Minus
-        };
-
-        Token::new(token_kind, self.span_from(start))
-    }
-
-    /// Lexes an `=` or `==` token.
-    ///
-    /// Consumes the leading `=` and looks ahead to determine if it is followed
-    /// by another `=`. If so, it returns an `EqEq` token; otherwise,
-    /// it returns an `Eq` token.
-    fn lex_eq_or_eqeq(&mut self) -> Token {
-        let start = self.cursor;
-        self.advance();
-
-        let kind = if self.consume_if('=') {
-            TokenKind::EqEq
-        } else {
-            TokenKind::Eq
-        };
-
-        Token::new(kind, self.span_from(start))
-    }
-
-    /// Lexes a `!` or `!=` token.
-    ///
-    /// Consumes the `!` and checks if it is followed by `=`. If so, it returns
-    /// a `BangEq` token; otherwise, it returns a `Bang` token.
-    fn lex_bang_or_bangeq(&mut self) -> Token {
-        let start = self.cursor;
-        self.advance();
-
-        let kind = if self.consume_if('=') {
-            TokenKind::BangEq
-        } else {
-            TokenKind::Bang
-        };
-
-        Token::new(kind, self.span_from(start))
-    }
-
-    /// Lexes a `<` or `<=` token.
-    ///
-    /// Consumes the `<` and checks if it is followed by `=`. If so, it returns
-    /// an `LtEq` token; otherwise, it returns an `Lt` token.
-    fn lex_lt_or_lteq(&mut self) -> Token {
-        let start = self.cursor;
-        self.advance();
-
-        let kind = if self.consume_if('=') {
-            TokenKind::LtEq
-        } else {
-            TokenKind::Lt
-        };
-
-        Token::new(kind, self.span_from(start))
-    }
-
-    /// Lexes a `>` or `>=` token.
-    ///
-    /// Consumes the `>` and checks if it is followed by `=`. If so, it returns
-    /// a `GtEq` token; otherwise, it returns a `Gt` token.
-    fn lex_gt_or_gteq(&mut self) -> Token {
-        let start = self.cursor;
-        self.advance();
-
-        let kind = if self.consume_if('=') {
-            TokenKind::GtEq
-        } else {
-            TokenKind::Gt
+            single_kind
         };
 
         Token::new(kind, self.span_from(start))
