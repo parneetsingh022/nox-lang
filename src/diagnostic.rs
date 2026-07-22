@@ -11,7 +11,7 @@ use thiserror::Error;
 pub type SourceFile = Arc<NamedSource<String>>;
 
 /// Represents position of a token in the source file.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Span {
     /// Byte index where this span starts.
     pub start: usize,
@@ -33,6 +33,21 @@ impl Span {
             end,
             line,
             column,
+        }
+    }
+
+    /// Creates a span that covers the source range from the beginning of `first`
+    /// through the end of `last`.
+    ///
+    /// The resulting span inherits its starting line and column from `first`.
+    pub fn from_bounds(first: Span, last: Span) -> Self {
+        debug_assert!(first.start <= last.end);
+
+        Self {
+            start: first.start,
+            end: last.end,
+            line: first.line,
+            column: first.column,
         }
     }
 }
