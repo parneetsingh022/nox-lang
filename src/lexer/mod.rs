@@ -17,7 +17,7 @@ use crate::diagnostic::{
 ///
 /// This includes spaces, tabs, newlines, carriage returns, and other ASCII
 /// whitespace bytes recognized by [`u8::is_ascii_whitespace`].
-pub fn is_whitespace(ch: char) -> bool {
+fn is_whitespace(ch: char) -> bool {
     ch.is_ascii_whitespace()
 }
 
