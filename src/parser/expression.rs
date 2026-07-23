@@ -31,16 +31,16 @@ impl<'a> Parser<'a> {
         Expr::new(ExprKind::FloatLiteral(value), span)
     }
 
-    /// Parses an Expr starting at the current token.
+    /// Parses an [`Expr`] starting at the current token.
     ///
-    /// This is the main entry point for Expr parsing. It starts the Pratt
-    /// parser with the lowest binding power so that the complete Expr can
+    /// This is the main entry point for expression parsing. It starts the Pratt
+    /// parser with the lowest binding power so that the complete [`Expr`] can
     /// be parsed.
     pub fn parse_expr(&mut self) -> Expr {
         self.parse_bp(0)
     }
 
-    /// Parses an Expr using Pratt parsing.
+    /// Parses an [`Expr`] using Pratt parsing.
     ///
     /// `min_bp` is the minimum binding power an operator must have to become part
     /// of the current Expr. Operators with lower binding power are left for
@@ -73,10 +73,10 @@ impl<'a> Parser<'a> {
         lhs
     }
 
-    /// Parses an Expr that begins at the current token.
+    /// Parses an [`Expr`] that begins at the current token.
     ///
     /// This is the null denotation (nud) step in Pratt parsing. It handles tokens
-    /// that can start an Expr, such as integer literals, identifiers, prefix
+    /// that can start an expression, such as integer literals, identifiers, prefix
     /// operators, and parenthesized expressions.
     ///
     /// For example, when parsing 1 + 2, this method first parses 1 before the
@@ -96,11 +96,11 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// Parses the right-hand side of a binary Expr and combines it with the
+    /// Parses the right-hand side of a binary [`Expr`]  and combines it with the
     /// previously parsed left-hand side.
     ///
     /// This corresponds to the left denotation (`led`) step in Pratt parsing.
-    /// The right-hand Expr is parsed using `right_bp`, which controls
+    /// The right-hand expression is parsed using `right_bp`, which controls
     /// precedence and associativity.
     ///
     /// For example, after parsing `1` and consuming `+` in `1 + 2`, this method
@@ -119,10 +119,10 @@ impl<'a> Parser<'a> {
         )
     }
 
-    /// Parses an Expr enclosed in parentheses.
+    /// Parses an [`Expr`]  enclosed in parentheses.
     ///
     /// The opening ( is consumed by the caller before this method is invoked.
-    /// This method parses the Expr inside the parentheses and then requires
+    /// This method parses the expression inside the parentheses and then requires
     /// a matching closing ).
     fn parse_grouped_expression(&mut self, open_pren_span: Span) -> Expr {
         let mut expr = self.parse_expr();
@@ -140,7 +140,7 @@ impl<'a> Parser<'a> {
     /// Parses a function call whose callee has already been parsed.
     ///
     /// For example, after parsing `foo` in `foo(1, 2)`, this method parses the
-    /// argument list and produces a call Expr with `foo` as its callee.
+    /// argument list and produces a call [`Expr`]  with `foo` as its callee.
     fn parse_call_expression(&mut self, callee: Expr) -> Expr {
         self.expect(TokenKind::OpenParen, "Expected `(` after function Expr");
 
