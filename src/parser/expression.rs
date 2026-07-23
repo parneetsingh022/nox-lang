@@ -8,8 +8,8 @@ use crate::{
 
 impl<'a> Parser<'a> {
     fn parse_integer_literal(&self, symbol: Symbol, span: Span) -> Expr {
-        // It is okay to panic here, because this is not a user error. If lexer
-        // workes as intended, it would not lex any invalid IntLiteral.
+        // It is okay to panic here, because this is not a user error. If the lexer
+        // works as intended, it will not lex any invalid IntLiteral.
         let value = self
             .symbol_registry
             .resolve(symbol)
@@ -20,8 +20,8 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_float_literal(&self, symbol: Symbol, span: Span) -> Expr {
-        // It is okay to panic here, because this is not a user error. If lexer
-        // workes as intended, it would not lex any invalid FloatLiteral.
+        // It is okay to panic here, because this is not a user error. If the lexer
+        // works as intended, it will not lex any invalid FloatLiteral.
         let value = self
             .symbol_registry
             .resolve(symbol)
