@@ -178,11 +178,11 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lexer::Lexer;
+    use crate::lexer::make_lexer;
     use rstest::rstest;
 
     fn parse_expression(source: &str) -> Expr {
-        let mut lexer = Lexer::new(source, "main.nox");
+        let mut lexer = make_lexer(source);
 
         let tokens = lexer.by_ref().map(|tok| tok.unwrap()).collect::<Vec<_>>();
 

@@ -1,7 +1,10 @@
-use nox_lang::{lexer::Lexer, parser::Parser};
+mod common;
+
+use common::make_lexer;
+use nox_lang::parser::Parser;
 
 fn parse_expression_debug(source: &str) -> String {
-    let mut lexer = Lexer::new(source, "main.nox");
+    let mut lexer = make_lexer(source);
     let tokens = lexer.by_ref().map(|res| res.unwrap()).collect::<Vec<_>>();
 
     let registry = lexer.take_registry();

@@ -1,14 +1,61 @@
 use std::sync::Arc;
 
-use miette::{Diagnostic, NamedSource, SourceSpan};
+use miette::{Diagnostic, MietteError, NamedSource, SourceCode, SourceSpan, SpanContents};
 use thiserror::Error;
 
-/// Shared source text used by diagnostics.
+use crate::lexer::TokenKind;
+
+/// Shared source text used by the lexer, parser, and diagnostics.
 ///
-/// Each lexer diagnostic needs access to the original source so `miette` can
-/// print labeled spans. `Arc` keeps cloning cheap when multiple diagnostics
-/// refer to the same file.
-pub type SourceFile = Arc<NamedSource<String>>;
+/// The underlying [`NamedSource`] stores the source contents and filename used
+/// by `miette` when rendering labeled spans and code snippets.
+///
+/// Wrapping it in an [`Arc`] allows the source file to be shared cheaply across
+/// the lexer, parser, and multiple diagnostics without duplicating the source
+/// text.
+#[derive(Debug, Clone)]
+pub struct SourceFile(Arc<NamedSource<String>>);
+
+impl SourceFile {
+    /// Creates a shared source file with the given name and contents.
+    ///
+    /// The source text is stored in a [`NamedSource`] and wrapped in an [`Arc`]
+    /// so it can be cloned and shared cheaply.
+    pub fn new(name: impl Into<String>, content: impl Into<String>) -> Self {
+        let name_str: String = name.into();
+        let content_str: String = content.into();
+        SourceFile(Arc::new(NamedSource::new(name_str, content_str)))
+    }
+
+    /// Returns the complete source text.
+    ///
+    /// The returned string slice is borrowed from this source file.
+    pub fn contents(&self) -> &str {
+        self.0.inner().as_str()
+    }
+
+    /// Returns the source text covered by `span`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the span is out of bounds, reversed, or does not lie on valid
+    /// UTF-8 character boundaries.
+    pub fn slice(&self, span: Span) -> &str {
+        &self.0.inner().as_str()[span.start..span.end]
+    }
+}
+
+impl SourceCode for SourceFile {
+    fn read_span<'a>(
+        &'a self,
+        span: &SourceSpan,
+        context_lines_before: usize,
+        context_lines_after: usize,
+    ) -> Result<Box<dyn SpanContents<'a> + 'a>, MietteError> {
+        self.0
+            .read_span(span, context_lines_before, context_lines_after)
+    }
+}
 
 /// Represents position of a token in the source file.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -140,6 +187,47 @@ pub struct InvalidNumericSuffixError {
 )]
 pub struct UnterminatedCommentError {
     #[label("this comment was never closed")]
+    pub at: SourceSpan,
+
+    #[source_code]
+    pub src: SourceFile,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+pub enum ParserError {
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    UnexpectedToken(#[from] UnexpectedTokenError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    UnexpectedEof(#[from] UnexpectedEofError),
+}
+
+#[derive(Error, Debug, Diagnostic)]
+#[error("Unexpected token '{found}'")]
+#[diagnostic(
+    code(nox::parser::unexpected_token),
+    help("An expression was expected here, but '{found}' was encountered instead.")
+)]
+pub struct UnexpectedTokenError {
+    pub found: TokenKind,
+
+    #[label("unexpected token")]
+    pub at: SourceSpan,
+
+    #[source_code]
+    pub src: SourceFile,
+}
+
+#[derive(Error, Debug, Diagnostic)]
+#[error("unexpected end of file")]
+#[diagnostic(
+    code(nox::parser::unexpected_eof),
+    help("check for unclosed delimiters, incomplete expressions, or trailing operators")
+)]
+pub struct UnexpectedEofError {
+    #[label("unexpected end of file here")]
     pub at: SourceSpan,
 
     #[source_code]
