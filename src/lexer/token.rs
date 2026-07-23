@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::{
     diagnostic::Span,
     lexer::{Symbol, SymbolRegistry},
@@ -80,6 +82,9 @@ pub enum TokenKind {
     CloseBracket,
 
     Unexpected,
+
+    /// End of file
+    Eof,
 }
 
 impl TokenKind {
@@ -106,6 +111,49 @@ impl TokenKind {
     fn intern(registry: &mut SymbolRegistry, value: &str, constructor: fn(Symbol) -> Self) -> Self {
         let symbol = registry.store(value);
         constructor(symbol)
+    }
+}
+
+impl fmt::Display for TokenKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Identifier(_) => write!(f, "identifier"),
+            Self::Keyword(_) => write!(f, "keyword"),
+            Self::IntLiteral(_) => write!(f, "integer literal"),
+            Self::FloatLiteral(_) => write!(f, "float literal"),
+
+            Self::And => write!(f, "&&"),
+            Self::Or => write!(f, "||"),
+            Self::Minus => write!(f, "-"),
+            Self::MinusMinus => write!(f, "--"),
+            Self::Plus => write!(f, "+"),
+            Self::PlusPlus => write!(f, "++"),
+            Self::Eq => write!(f, "="),
+            Self::EqEq => write!(f, "=="),
+            Self::Bang => write!(f, "!"),
+            Self::BangEq => write!(f, "!="),
+            Self::Lt => write!(f, "<"),
+            Self::LtEq => write!(f, "<="),
+            Self::Gt => write!(f, ">"),
+            Self::GtEq => write!(f, ">="),
+            Self::Star => write!(f, "*"),
+            Self::Slash => write!(f, "/"),
+            Self::Caret => write!(f, "^"),
+            Self::Percent => write!(f, "%"),
+
+            Self::Semi => write!(f, ";"),
+            Self::Comma => write!(f, ","),
+            Self::Dot => write!(f, "."),
+            Self::OpenParen => write!(f, "("),
+            Self::CloseParen => write!(f, ")"),
+            Self::OpenBrace => write!(f, "{{"),
+            Self::CloseBrace => write!(f, "}}"),
+            Self::OpenBracket => write!(f, "["),
+            Self::CloseBracket => write!(f, "]"),
+
+            Self::Unexpected => write!(f, "unknown token"),
+            Self::Eof => write!(f, "end of file"),
+        }
     }
 }
 
