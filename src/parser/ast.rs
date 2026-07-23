@@ -5,11 +5,16 @@ use crate::{
     lexer::{Symbol, SymbolRegistry, Token, TokenKind},
 };
 
+/// Represents binary arithmetic operations in expressions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BinaryOp {
+    /// Addition (`+`)
     Plus,
+    /// Subtraction (`-`)
     Minus,
+    /// Multiplication (`*`)
     Multiply,
+    /// Division (`/`)
     Divide,
 }
 
@@ -35,12 +40,19 @@ impl BinaryOp {
     }
 }
 
+/// Represents an expression in the abstract syntax tree (AST).
+///
+/// An `Expr` pairs an expression variant ([`ExprKind`]), which defines
+/// its semantic structure, with a source [`Span`] for error reporting and
+/// source mapping.
 #[derive(Debug, Clone)]
 pub struct Expr {
     kind: ExprKind,
     span: Span,
 }
 
+// We intentionally compare only the ExprKind here so parser tests can
+// assert AST structure without needing exact span/location matching.
 impl PartialEq for Expr {
     fn eq(&self, other: &Self) -> bool {
         self.kind == other.kind
@@ -59,8 +71,13 @@ impl Expr {
     pub fn set_span(&mut self, span: Span) {
         self.span = span;
     }
+
+    pub fn debug_with<'a>(&'a self, reg: &'a SymbolRegistry) -> ExprDebug<'a> {
+        ExprDebug { expr: self, reg }
+    }
 }
 
+/// The semantic variant of an expression in the abstract syntax tree (AST).
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExprKind {
     IntLiteral(i64),
@@ -71,17 +88,10 @@ pub enum ExprKind {
         op: BinaryOp,
         right: Box<Expr>,
     },
-
     Call {
         callee: Box<Expr>,
         arguments: Vec<Expr>,
     },
-}
-
-impl Expr {
-    pub fn debug_with<'a>(&'a self, reg: &'a SymbolRegistry) -> ExprDebug<'a> {
-        ExprDebug { expr: self, reg }
-    }
 }
 
 pub struct ExprDebug<'a> {
