@@ -1,5 +1,6 @@
 use std::{env, fs, process};
 
+use nox_lang::diagnostic::SourceFile;
 use nox_lang::lexer::Lexer;
 use nox_lang::lexer::Token;
 use nox_lang::parser::Parser;
@@ -17,12 +18,14 @@ fn main() {
     let file_path = &args[1];
 
     // Read the file, exiting gracefully if the file cannot be read
-    let string = fs::read_to_string(file_path).unwrap_or_else(|err| {
+    let code = fs::read_to_string(file_path).unwrap_or_else(|err| {
         eprintln!("Error reading file '{}': {}", file_path, err);
         process::exit(1);
     });
 
-    let mut lexer = Lexer::new(&string, file_path);
+    let source_file = SourceFile::new(file_path, code);
+
+    let mut lexer = Lexer::new(source_file.clone());
     let tokens: Vec<Token> = match lexer.by_ref().collect::<Result<Vec<_>, _>>() {
         Ok(tokens) => tokens,
         Err(err) => {

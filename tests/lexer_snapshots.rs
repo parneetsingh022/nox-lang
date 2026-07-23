@@ -1,7 +1,10 @@
-use nox_lang::lexer::{Lexer, TokenKind};
+mod common;
+
+use common::make_lexer;
+use nox_lang::lexer::TokenKind;
 
 fn snapshot_tokens(source: &str) -> String {
-    let mut lexer = Lexer::new(source, "main.nox");
+    let mut lexer = make_lexer(source);
     let mut results = Vec::new();
 
     // Use a loop to avoid iterator lifetime issues
