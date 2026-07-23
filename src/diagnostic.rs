@@ -41,7 +41,7 @@ impl SourceFile {
     /// Panics if the span is out of bounds, reversed, or does not lie on valid
     /// UTF-8 character boundaries.
     pub fn slice(&self, span: Span) -> &str {
-        &self.0.inner().as_str()[span.start..span.end]
+        &self.contents()[span.start..span.end]
     }
 }
 
