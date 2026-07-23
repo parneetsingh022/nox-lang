@@ -68,6 +68,10 @@ impl Expr {
         self.span
     }
 
+    pub fn kind(&self) -> &ExprKind {
+        &self.kind
+    }
+
     pub fn set_span(&mut self, span: Span) {
         self.span = span;
     }

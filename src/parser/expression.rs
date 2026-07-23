@@ -43,7 +43,7 @@ impl<'a> Parser<'a> {
     /// Parses an [`Expr`] using Pratt parsing.
     ///
     /// `min_bp` is the minimum binding power an operator must have to become part
-    /// of the current Expr. Operators with lower binding power are left for
+    /// of the current expression. Operators with lower binding power are left for
     /// the caller to parse.
     fn parse_bp(&mut self, min_bp: u8) -> Expr {
         let mut lhs = self.parse_prefix_expression();
@@ -307,5 +307,114 @@ mod tests {
         );
 
         assert_eq!(expr, expected);
+    }
+
+    // =========================================================================
+    // Span Tests
+    // =========================================================================
+    #[test]
+    fn parses_literal_spans() {
+        let expr = parse_expression("42");
+        // Assuming "42" starts at byte 0 and ends at byte 2, on line 1, column 1
+        assert_eq!(expr.span(), Span::new(0, 2, 1, 1));
+    }
+
+    #[test]
+    fn parses_binary_expression_spans() {
+        // "1 + 2"
+        // '1' is at 0..1
+        // '+' is at 2..3
+        // '2' is at 4..5
+        let expr = parse_expression("1 + 2");
+
+        // The binary expression should span from the start of '1' to the end of '2' (0..5)
+        assert_eq!(expr.span(), Span::new(0, 5, 1, 1));
+
+        // Verify inner node spans as well
+        if let ExprKind::Binary { left, right, .. } = expr.kind() {
+            assert_eq!(left.span(), Span::new(0, 1, 1, 1));
+            assert_eq!(right.span(), Span::new(4, 5, 1, 5));
+        } else {
+            panic!("Expected binary expression");
+        }
+    }
+
+    #[test]
+    fn parses_grouped_expression_spans() {
+        // "(1 + 2)"
+        // '(' at 0..1, '1' at 1..2, '+' at 3..4, '2' at 5..6, ')' at 6..7
+        let expr = parse_expression("(1 + 2)");
+
+        // The grouped expression span should enclose the parentheses (0..7)
+        assert_eq!(expr.span(), Span::new(0, 7, 1, 1));
+    }
+
+    #[test]
+    fn parses_nested_precedence_spans() {
+        // "1 + 2 * 3"
+        let expr = parse_expression("1 + 2 * 3");
+
+        // Outer binary expression (+): spans from '1' (0) to '3' (8) -> 0..9 roughly depending on exact spacing
+        assert_eq!(expr.span().start, 0);
+
+        // Inner binary expression (*): "2 * 3" spans from '2' to '3'
+        if let ExprKind::Binary { right, .. } = expr.kind() {
+            assert_eq!(right.span(), Span::new(4, 9, 1, 5));
+        } else {
+            panic!("Expected binary expression");
+        }
+    }
+
+    #[test]
+    fn parses_complex_expression_spans_with_spacing() {
+        // Source: "  ( 10 + 20 ) * 30  "        // Index 0-1: two spaces "  "
+        // Index 2: '('
+        // Index 3: ' '
+        // Index 4-5: '10'
+        // Index 6: ' '
+        // Index 7: '+'
+        // Index 8: ' '
+        // Index 9-10: '20'
+        // Index 11: ' '
+        // Index 12: ')'
+        // Index 13: ' '
+        // Index 14: '*'
+        // Index 15: ' '
+        // Index 16-17: '30'
+        // Index 18-19: two trailing spaces "  "
+        let source = "  ( 10 + 20 ) * 30  ";
+        let expr = parse_expression(source);
+
+        // The overall expression is a multiplication (*) spanning from the opening '(' to '30'
+        // Opening parenthesis starts at index 2, '30' ends at index 18.
+        assert_eq!(expr.span(), Span::new(2, 18, 1, 3));
+
+        if let ExprKind::Binary { left, op, right } = expr.kind() {
+            assert_eq!(*op, BinaryOp::Multiply);
+
+            // Left side is the grouped expression "( 10 + 20 )", spanning from index 2 to 13
+            assert_eq!(left.span(), Span::new(2, 13, 1, 3));
+
+            // Right side is the integer literal "30", spanning from index 16 to 18
+            assert_eq!(right.span(), Span::new(16, 18, 1, 17));
+
+            // Check inner parts of the grouped expression
+            if let ExprKind::Binary {
+                left: inner_left,
+                op: inner_op,
+                right: inner_right,
+            } = left.kind()
+            {
+                assert_eq!(*inner_op, BinaryOp::Plus);
+                // "10" spans from index 4 to 6
+                assert_eq!(inner_left.span(), Span::new(4, 6, 1, 5));
+                // "20" spans from index 9 to 11
+                assert_eq!(inner_right.span(), Span::new(9, 11, 1, 10));
+            } else {
+                panic!("Expected inner binary expression inside parentheses");
+            }
+        } else {
+            panic!("Expected outer multiplication expression");
+        }
     }
 }
