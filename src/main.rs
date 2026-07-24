@@ -1,9 +1,10 @@
 use std::{env, fs, process};
 
-use nox_lang::diagnostic::SourceFile;
-use nox_lang::lexer::Lexer;
-use nox_lang::lexer::Token;
-use nox_lang::parser::Parser;
+use nox_lang::{
+    diagnostic::SourceFile,
+    lexer::{Lexer, Token},
+    parser::Parser,
+};
 
 fn main() {
     // Collect arguments from the command line

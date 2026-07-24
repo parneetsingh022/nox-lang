@@ -1,10 +1,10 @@
-use crate::diagnostic::{ExpectedExpressionError, ParserError, Span, UnexpectedEofError};
-use crate::parser::Parser;
-
-use crate::parser::ast::UnaryOp;
 use crate::{
+    diagnostic::{ExpectedExpressionError, ParserError, Span, UnexpectedEofError},
     lexer::{Symbol, TokenKind},
-    parser::ast::{BinaryOp, Expr, ExprKind},
+    parser::{
+        Parser,
+        ast::{BinaryOp, Expr, ExprKind, UnaryOp},
+    },
 };
 
 /// Determines whether a given [`TokenKind`] represents a valid unary (prefix) operator.
