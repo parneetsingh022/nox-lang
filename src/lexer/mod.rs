@@ -12,9 +12,9 @@ use crate::diagnostic::{
 };
 
 #[cfg(test)]
-pub fn make_lexer(code: &str) -> Lexer {
+pub fn make_lexer(code: &str) -> (Lexer, SourceFile) {
     let source_file: SourceFile = SourceFile::new("main.nox", code);
-    Lexer::new(source_file)
+    (Lexer::new(source_file.clone()), source_file)
 }
 
 /// Returns whether the byte is ASCII whitespace.
@@ -562,7 +562,7 @@ mod tests {
     }
 
     fn assert_identifier(code: &str) {
-        let mut lexer = make_lexer(code);
+        let (mut lexer, _) = make_lexer(code);
         let token = next_token(&mut lexer);
 
         match token.kind {
@@ -577,14 +577,14 @@ mod tests {
     }
 
     fn assert_keyword(code: &str, expected: Keyword) {
-        let mut lexer = make_lexer(code);
+        let (mut lexer, _) = make_lexer(code);
         let token = next_token(&mut lexer);
         assert_eq!(token.kind, TokenKind::Keyword(expected));
         assert!(lexer.next().is_none());
     }
 
     fn assert_lexer_errors(code: &str, expected_variants: &[fn(&LexerError) -> bool]) {
-        let mut lexer = make_lexer(code);
+        let (mut lexer, _) = make_lexer(code);
         let _: Vec<_> = lexer.by_ref().collect();
         let errors = lexer.take_errors();
         dbg!(&errors);
@@ -607,7 +607,7 @@ mod tests {
     }
 
     fn assert_kinds(code: &str, expected: Vec<TokenKind>) {
-        let mut lexer = make_lexer(code);
+        let (mut lexer, _) = make_lexer(code);
 
         let generated: Vec<TokenKind> = (0..expected.len())
             .map(|_| next_token(&mut lexer).kind)
@@ -618,7 +618,7 @@ mod tests {
     }
 
     fn assert_token_spans(code: &str, expected: Vec<(TokenKind, Span)>) {
-        let mut lexer = make_lexer(code);
+        let (mut lexer, _) = make_lexer(code);
 
         let generated: Vec<Token> = (0..expected.len())
             .map(|_| next_token(&mut lexer))
@@ -647,7 +647,7 @@ mod tests {
 
         #[test]
         fn lexer_handles_empty_source() {
-            let mut lexer = make_lexer("   \n\t\r\n  ");
+            let (mut lexer, _) = make_lexer("   \n\t\r\n  ");
             assert_eof(&mut lexer);
         }
 
@@ -673,7 +673,7 @@ mod tests {
         fn lexer_recognizes_positive_integers() {
             let code = "234 596 32 0";
 
-            let mut lexer = make_lexer(code);
+            let (mut lexer, _) = make_lexer(code);
             let expected = code
                 .split_whitespace()
                 .map(|num| TokenKind::IntLiteral(lexer.symbol_registry.store(num)))
@@ -686,7 +686,7 @@ mod tests {
         fn lexer_recognizes_positive_floats() {
             let code = "234.49 4549.5239 32.39 0.0";
 
-            let mut lexer = make_lexer(code);
+            let (mut lexer, _) = make_lexer(code);
             let expected = code
                 .split_whitespace()
                 .map(|num| TokenKind::FloatLiteral(lexer.symbol_registry.store(num)))
@@ -698,7 +698,7 @@ mod tests {
         #[test]
         fn lexer_recognizes_mixed_tokens() {
             let code = "let x 123 45.67 const";
-            let mut lexer = make_lexer(code);
+            let (mut lexer, _) = make_lexer(code);
 
             assert_token!(&mut lexer, TokenKind::Keyword(Keyword::Let));
             assert_token!(&mut lexer, TokenKind::Identifier, "x");
@@ -718,8 +718,8 @@ mod tests {
         #[case("/", TokenKind::Slash)]
         #[case("%", TokenKind::Percent)]
         #[case("^", TokenKind::Caret)]
-        fn test_individual_math_operator(#[case] input: &str, #[case] expected: TokenKind) {
-            let mut lexer = make_lexer(input);
+        fn test_individual_math_operator(#[case] code: &str, #[case] expected: TokenKind) {
+            let (mut lexer, _) = make_lexer(code);
             let token = next_token(&mut lexer);
             assert_eq!(token.kind, expected);
             assert_eof(&mut lexer);
@@ -735,7 +735,7 @@ mod tests {
         #[case(">", TokenKind::Gt)]
         #[case(">=", TokenKind::GtEq)]
         fn test_comparison_operators(#[case] code: &str, #[case] expected: TokenKind) {
-            let mut lexer = make_lexer(code);
+            let (mut lexer, _) = make_lexer(code);
 
             assert_eq!(next_token(&mut lexer).kind, expected);
             assert_eof(&mut lexer);
@@ -750,7 +750,7 @@ let x = 10; // this is comment
 print(x);
 "#;
 
-            let mut lexer = make_lexer(code);
+            let (mut lexer, _) = make_lexer(code);
 
             // Assert the exact sequence of tokens, ignoring comments
             assert_token!(&mut lexer, TokenKind::Keyword(Keyword::Let));
@@ -784,7 +784,7 @@ print(x);
         #[test]
         fn lexer_tracks_position_correctly() {
             let code = "let\n  x";
-            let mut lexer = make_lexer(code);
+            let (mut lexer, _) = make_lexer(code);
 
             let t1 = next_token(&mut lexer);
             assert_eq!(t1.span, s(0, 3, 1, 1));
@@ -796,7 +796,7 @@ print(x);
         #[test]
         fn lexer_tracks_multiline_positions() {
             let code = "a\n\nb";
-            let mut lexer = make_lexer(code);
+            let (mut lexer, _) = make_lexer(code);
 
             let t1 = next_token(&mut lexer);
             assert_eq!(t1.span, s(0, 1, 1, 1));
@@ -807,14 +807,15 @@ print(x);
 
         #[test]
         fn lexer_handles_whitespace_only_source() {
-            let mut lexer = make_lexer("   \n\t\r\n  ");
+            let code = "   \n\t\r\n  ";
+            let (mut lexer, _) = make_lexer(code);
             assert_eof(&mut lexer);
         }
 
         #[test]
         fn lexer_tracks_span_offsets_after_whitespace() {
             let code = "  \n  hello";
-            let mut lexer = make_lexer(code);
+            let (mut lexer, _) = make_lexer(code);
 
             let t = next_token(&mut lexer);
 
@@ -831,7 +832,7 @@ print(x);
         #[test]
         fn lexer_handles_tabs_before_token() {
             let code = "\t\tabc";
-            let mut lexer = make_lexer(code);
+            let (mut lexer, _) = make_lexer(code);
 
             let t = next_token(&mut lexer);
             match t.kind {
@@ -847,7 +848,7 @@ print(x);
         #[test]
         fn lexer_handles_crlf_newlines() {
             let code = "a\r\nb";
-            let mut lexer = make_lexer(code);
+            let (mut lexer, _) = make_lexer(code);
 
             let t1 = next_token(&mut lexer);
             assert_eq!(t1.span, s(0, 1, 1, 1));
@@ -881,7 +882,7 @@ print(x);
             #[case] start: usize,
             #[case] end: usize,
         ) {
-            let mut lexer = make_lexer(code);
+            let (mut lexer, _) = make_lexer(code);
             let token = next_token(&mut lexer);
 
             assert_eq!(token.kind, kind);
@@ -900,11 +901,11 @@ print(x);
         #[case("[", TokenKind::OpenBracket, s(0, 1, 1, 1))]
         #[case("]", TokenKind::CloseBracket, s(0, 1, 1, 1))]
         fn test_punctuation_and_delimiters(
-            #[case] input: &str,
+            #[case] code: &str,
             #[case] kind: TokenKind,
             #[case] expected_span: Span,
         ) {
-            let mut lexer = make_lexer(input);
+            let (mut lexer, _) = make_lexer(code);
             let token = next_token(&mut lexer);
 
             assert_eq!(token.kind, kind);
@@ -915,7 +916,7 @@ print(x);
         #[test]
         fn test_complex_mixed_expression_spans() {
             let code = "let x = (1 + [2 * 3]);";
-            let mut lexer = make_lexer(code);
+            let (mut lexer, _) = make_lexer(code);
 
             assert_eq!(next_token(&mut lexer).span, s(0, 3, 1, 1)); // let
             assert_eq!(next_token(&mut lexer).span, s(4, 5, 1, 5)); // x
@@ -937,7 +938,7 @@ print(x);
         #[test]
         fn spans_are_correct_after_single_line_comment() {
             let code = "// comment\nlet x = 10;";
-            let mut lexer = make_lexer(code);
+            let (mut lexer, _) = make_lexer(code);
 
             assert_eq!(next_token(&mut lexer).span, s(11, 14, 2, 1)); // let
             assert_eq!(next_token(&mut lexer).span, s(15, 16, 2, 5)); // x

@@ -39,9 +39,11 @@ fn main() {
         std::process::exit(1);
     }
 
-    let mut parser = Parser::new(&tokens, &lexer.symbol_registry);
-    let exp = parser.parse_expr();
-    println!("{:#?}", exp.debug_with(&lexer.symbol_registry));
+    let mut parser = Parser::new(&tokens, &lexer.symbol_registry, source_file.clone());
+    match parser.parse_expr() {
+        Ok(expr) => println!("{:#?}", expr.debug_with(&lexer.symbol_registry)),
+        Err(err) => eprintln!("{:?}", miette::Report::new(err)),
+    }
 }
 
 /// Prints all error collected by lexer.
