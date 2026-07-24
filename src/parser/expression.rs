@@ -1,16 +1,29 @@
 use crate::diagnostic::{ExpectedExpressionError, ParserError, Span, UnexpectedEofError};
 use crate::parser::Parser;
 
+use crate::parser::ast::UnaryOp;
 use crate::{
     lexer::{Symbol, TokenKind},
     parser::ast::{BinaryOp, Expr, ExprKind},
 };
+
+/// Determines whether a given [`TokenKind`] represents a valid unary (prefix) operator.
+///
+/// The parser uses this check to identify tokens that can legitimately start
+/// an expression during the null denotation (`nud`) step.
+fn is_unary_operator(token_kind: TokenKind) -> bool {
+    matches!(token_kind, TokenKind::Minus | TokenKind::Bang)
+}
 
 impl<'a> Parser<'a> {
     fn is_expr_start(&self) -> bool {
         let Some(current) = self.peek().map(|tok| tok.kind) else {
             return false;
         };
+
+        if is_unary_operator(current) {
+            return true;
+        }
 
         matches!(
             current,
@@ -109,6 +122,7 @@ impl<'a> Parser<'a> {
             TokenKind::FloatLiteral(symbol) => self.parse_float_literal(symbol, span),
             TokenKind::Identifier(symbol) => Expr::new(ExprKind::Identifier(symbol), span),
             TokenKind::OpenParen => self.parse_grouped_expression(span)?,
+            unary if is_unary_operator(unary) => self.parse_unary_expr()?,
             unexpected => {
                 return Err(ExpectedExpressionError {
                     at: span.into(),
@@ -222,6 +236,44 @@ impl<'a> Parser<'a> {
             span,
         ))
     }
+
+    /// Parses a unary prefix expression.
+    ///
+    /// This method is called as part of the null denotation (nud) step in
+    /// Pratt parsing. It expects the caller to have already consumed the
+    /// prefix operator token. It dynamically fetches the operator's binding
+    /// power and parses the right-hand operand accordingly.
+    fn parse_unary_expr(&mut self) -> Result<Expr, ParserError> {
+        // `parse_unary` is exclusively called by `parse_prefix_expression`
+        // immediately after advancing past a validated prefix operator.
+        // Therefore, `self.previous()` is guaranteed to exist, and
+        // `UnaryOp::from_token` is guaranteed to succeed. A panic here
+        // indicates a parser bug.
+        let op = self
+            .previous()
+            .expect("parse_unary called without advancing the parser first");
+
+        let start = op.span;
+        let unary_op = UnaryOp::from_token(op).unwrap_or_else(|| {
+            panic!(
+                "parse_unary expected prefix operator, but found {:?}",
+                op.kind
+            )
+        });
+
+        let right_bp = unary_op.binding_power();
+        let expr = self.parse_bp(right_bp)?;
+
+        let span = Span::from_bounds(start, expr.span());
+
+        Ok(Expr::new(
+            ExprKind::Unary {
+                op: unary_op,
+                expr: Box::new(expr),
+            },
+            span,
+        ))
+    }
 }
 
 #[cfg(test)]
@@ -254,6 +306,16 @@ mod tests {
                 left: Box::new(left),
                 op,
                 right: Box::new(right),
+            },
+            Span::default(),
+        )
+    }
+
+    fn unary(op: UnaryOp, expr: Expr) -> Expr {
+        Expr::new(
+            ExprKind::Unary {
+                op,
+                expr: Box::new(expr),
             },
             Span::default(),
         )
@@ -358,6 +420,68 @@ mod tests {
         assert_eq!(expr, expected);
     }
 
+    #[rstest]
+    #[case("-42", unary(UnaryOp::Minus, int(42)))]
+    #[case("!42", unary(UnaryOp::Not, int(42)))]
+    #[allow(clippy::approx_constant)]
+    #[case("-3.14", unary(UnaryOp::Minus, float(3.14)))]
+    fn parses_unary_operators(#[case] source: &str, #[case] expected: Expr) {
+        assert_eq!(parse_expression(source), expected);
+    }
+
+    #[test]
+    fn parses_unary_identifier() {
+        let expr = parse_expression("-foo");
+
+        let ExprKind::Unary { op, expr: inner } = expr.kind() else {
+            panic!("Expected unary expression");
+        };
+
+        assert_eq!(*op, UnaryOp::Minus);
+        assert!(matches!(inner.kind(), ExprKind::Identifier(_)));
+    }
+
+    #[test]
+    fn parses_unary_call() {
+        let expr = parse_expression("!foo()");
+
+        let ExprKind::Unary { op, expr: inner } = expr.kind() else {
+            panic!("Expected unary expression");
+        };
+
+        assert_eq!(*op, UnaryOp::Not);
+        assert!(matches!(inner.kind(), ExprKind::Call { .. }));
+    }
+
+    #[test]
+    fn unary_binds_tighter_than_addition() {
+        // -1 + 2 should be parsed as (-1) + 2, not -(1 + 2)
+        let expr = parse_expression("-1 + 2");
+
+        let expected = binary(unary(UnaryOp::Minus, int(1)), BinaryOp::Plus, int(2));
+
+        assert_eq!(expr, expected);
+    }
+
+    #[test]
+    fn unary_binds_tighter_than_multiplication() {
+        // !1 * 2 should be parsed as (!1) * 2
+        let expr = parse_expression("!1 * 2");
+
+        let expected = binary(unary(UnaryOp::Not, int(1)), BinaryOp::Multiply, int(2));
+
+        assert_eq!(expr, expected);
+    }
+
+    #[test]
+    fn multiple_unary_operators_are_parsed() {
+        // !!1 should be parsed as !(!1)
+        let expr = parse_expression("!!1");
+
+        let expected = unary(UnaryOp::Not, unary(UnaryOp::Not, int(1)));
+
+        assert_eq!(expr, expected);
+    }
     // =========================================================================
     // Span Tests
     // =========================================================================
@@ -464,6 +588,48 @@ mod tests {
             }
         } else {
             panic!("Expected outer multiplication expression");
+        }
+    }
+
+    #[test]
+    fn parses_unary_expression_spans() {
+        // "-42"
+        // '-' is at 0..1 (col 1)
+        // '42' is at 1..3 (col 2)
+        let expr = parse_expression("-42");
+
+        // The unary expression should span from the start of '-' to the end of '42' (0..3)
+        assert_eq!(expr.span(), Span::new(0, 3, 1, 1));
+
+        // Verify inner node span as well
+        if let ExprKind::Unary {
+            expr: inner_expr, ..
+        } = expr.kind()
+        {
+            assert_eq!(inner_expr.span(), Span::new(1, 3, 1, 2));
+        } else {
+            panic!("Expected unary expression");
+        }
+    }
+
+    #[test]
+    fn parses_unary_expression_spans_with_spacing() {
+        // "!  42"
+        // '!' is at 0..1 (col 1)
+        // two spaces at 1..3
+        // '42' is at 3..5 (col 4)
+        let expr = parse_expression("!  42");
+
+        // The unary expression should span from the start of '!' to the end of '42' (0..5)
+        assert_eq!(expr.span(), Span::new(0, 5, 1, 1));
+
+        if let ExprKind::Unary {
+            expr: inner_expr, ..
+        } = expr.kind()
+        {
+            assert_eq!(inner_expr.span(), Span::new(3, 5, 1, 4));
+        } else {
+            panic!("Expected unary expression");
         }
     }
 }

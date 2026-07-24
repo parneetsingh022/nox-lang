@@ -5,6 +5,33 @@ use crate::{
     lexer::{Symbol, SymbolRegistry, Token, TokenKind},
 };
 
+/// Represents unary operations in expressions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UnaryOp {
+    Minus,
+    Not,
+}
+
+impl UnaryOp {
+    /// Returns the right binding power of the unary operator.
+    /// Prefix operators bind very tightly, higher than multiplication and division.
+    pub fn binding_power(self) -> u8 {
+        match self {
+            Self::Minus | Self::Not => 5,
+        }
+    }
+
+    pub fn from_token(token: &Token) -> Option<UnaryOp> {
+        let op = match token.kind {
+            TokenKind::Minus => Self::Minus,
+            TokenKind::Bang => Self::Not,
+            _ => return None,
+        };
+
+        Some(op)
+    }
+}
+
 /// Represents binary arithmetic operations in expressions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BinaryOp {
@@ -92,6 +119,10 @@ pub enum ExprKind {
         op: BinaryOp,
         right: Box<Expr>,
     },
+    Unary {
+        op: UnaryOp,
+        expr: Box<Expr>,
+    },
     Call {
         callee: Box<Expr>,
         arguments: Vec<Expr>,
@@ -118,6 +149,11 @@ impl fmt::Debug for ExprDebug<'_> {
                 .field("left", &left.debug_with(self.reg))
                 .field("op", op)
                 .field("right", &right.debug_with(self.reg))
+                .finish(),
+            ExprKind::Unary { op, expr } => f
+                .debug_struct("Unary")
+                .field("op", op)
+                .field("right", &expr.debug_with(self.reg))
                 .finish(),
             ExprKind::Call { callee, arguments } => {
                 let arguments = arguments
