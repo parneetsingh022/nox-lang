@@ -197,27 +197,19 @@ pub struct UnterminatedCommentError {
 pub enum ParserError {
     #[error(transparent)]
     #[diagnostic(transparent)]
-    UnexpectedToken(#[from] UnexpectedTokenError),
+    UnexpectedEof(#[from] UnexpectedEofError),
 
     #[error(transparent)]
     #[diagnostic(transparent)]
-    UnexpectedEof(#[from] UnexpectedEofError),
-}
+    ExpectedExpression(#[from] ExpectedExpressionError),
 
-#[derive(Error, Debug, Diagnostic)]
-#[error("Unexpected token '{found}'")]
-#[diagnostic(
-    code(nox::parser::unexpected_token),
-    help("An expression was expected here, but '{found}' was encountered instead.")
-)]
-pub struct UnexpectedTokenError {
-    pub found: TokenKind,
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    ExpectedToken(#[from] ExpectedTokenError),
 
-    #[label("unexpected token")]
-    pub at: SourceSpan,
-
-    #[source_code]
-    pub src: SourceFile,
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    UnclosedDelimiter(#[from] UnclosedDelimiterError),
 }
 
 #[derive(Error, Debug, Diagnostic)]
@@ -229,6 +221,55 @@ pub struct UnexpectedTokenError {
 pub struct UnexpectedEofError {
     #[label("unexpected end of file here")]
     pub at: SourceSpan,
+
+    #[source_code]
+    pub src: SourceFile,
+}
+
+#[derive(Error, Debug, Diagnostic)]
+#[error("expected an expression, found `{found}`")]
+#[diagnostic(
+    code(nox::parser::expected_expression),
+    help("remove the unexpected token or provide the missing expression")
+)]
+pub struct ExpectedExpressionError {
+    pub found: TokenKind,
+
+    #[label("expected an expression here")]
+    pub at: SourceSpan,
+
+    #[source_code]
+    pub src: SourceFile,
+}
+
+#[derive(Error, Debug, Diagnostic)]
+#[error("expected `{expected}`, found `{found}`")]
+#[diagnostic(
+    code(nox::parser::expected_token),
+    help("insert the missing token or remove the unexpected one")
+)]
+pub struct ExpectedTokenError {
+    pub expected: TokenKind,
+    pub found: TokenKind,
+
+    #[label("expected `{expected}` after this")]
+    pub at: SourceSpan,
+
+    #[source_code]
+    pub src: SourceFile,
+}
+
+#[derive(Error, Debug, Diagnostic)]
+#[error("unclosed delimiter")]
+#[diagnostic(
+    code(nox::parser::unclosed_delimiter),
+    help("insert a `{expected}` to close this group")
+)]
+pub struct UnclosedDelimiterError {
+    pub expected: TokenKind,
+
+    #[label("expected `{expected}` to close this")]
+    pub opened_at: SourceSpan,
 
     #[source_code]
     pub src: SourceFile,

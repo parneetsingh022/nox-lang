@@ -3,18 +3,27 @@
 pub mod ast;
 pub mod expression;
 
-use crate::lexer::{SymbolRegistry, Token, TokenKind};
+use crate::{
+    diagnostic::{ExpectedTokenError, ParserError, SourceFile, Span, UnexpectedEofError},
+    lexer::{SymbolRegistry, Token, TokenKind},
+};
 
 /// Parses a stream of lexical tokens into an abstract syntax tree (AST).
 pub struct Parser<'a> {
+    source_file: SourceFile,
     tokens: &'a [Token],
     symbol_registry: &'a SymbolRegistry,
     pos: usize,
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(tokens: &'a [Token], symbol_registry: &'a SymbolRegistry) -> Self {
+    pub fn new(
+        tokens: &'a [Token],
+        symbol_registry: &'a SymbolRegistry,
+        source_file: SourceFile,
+    ) -> Self {
         Self {
+            source_file,
             tokens,
             pos: 0,
             symbol_registry,
@@ -26,6 +35,15 @@ impl<'a> Parser<'a> {
         self.tokens.get(self.pos)
     }
 
+    /// Returns the most recently consumed token.
+    fn previous(&self) -> Option<&'a Token> {
+        self.pos.checked_sub(1).and_then(|pos| self.tokens.get(pos))
+    }
+
+    fn eof_span(&self) -> Span {
+        self.previous()
+            .map_or(Span::new(0, 0, 1, 1), |token| token.span)
+    }
     /// Consumes the current token and advances the parser position.
     fn advance(&mut self) -> Option<&Token> {
         let token = self.tokens.get(self.pos)?;
@@ -38,12 +56,33 @@ impl<'a> Parser<'a> {
         self.peek().is_some_and(|token| token.kind == kind)
     }
 
-    /// Consumes the current token if it matches the given kind, or panics with a message.
-    fn expect(&mut self, kind: TokenKind, message: &str) -> &Token {
-        if self.check(kind) {
-            self.advance().unwrap()
-        } else {
-            panic!("{message}");
+    pub fn expect(&mut self, expected: TokenKind) -> Result<&Token, ParserError> {
+        match self.peek() {
+            Some(token) if token.kind == expected => {
+                // Safe to unwrap because peek() just guaranteed a token exists
+                Ok(self.advance().unwrap())
+            }
+
+            // We found a token, but it's the wrong kind
+            Some(token) => {
+                let found = token.kind;
+                // Fall back to the previous token's span if available,
+                // otherwise use the current token's span.
+                let span = self.previous().map(|prev| prev.span).unwrap_or(token.span);
+                Err(ExpectedTokenError {
+                    expected,
+                    found,
+                    at: span.into(),
+                    src: self.source_file.clone(),
+                }
+                .into())
+            }
+
+            None => Err(UnexpectedEofError {
+                at: self.eof_span().into(),
+                src: self.source_file.clone(),
+            }
+            .into()),
         }
     }
 }

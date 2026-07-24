@@ -1,4 +1,4 @@
-use crate::diagnostic::Span;
+use crate::diagnostic::{ExpectedExpressionError, ParserError, Span, UnexpectedEofError};
 use crate::parser::Parser;
 
 use crate::{
@@ -7,6 +7,20 @@ use crate::{
 };
 
 impl<'a> Parser<'a> {
+    fn is_expr_start(&self) -> bool {
+        let Some(current) = self.peek().map(|tok| tok.kind) else {
+            return false;
+        };
+
+        matches!(
+            current,
+            TokenKind::Identifier(_)
+                | TokenKind::IntLiteral(_)
+                | TokenKind::FloatLiteral(_)
+                | TokenKind::OpenParen
+        )
+    }
+
     fn parse_integer_literal(&self, symbol: Symbol, span: Span) -> Expr {
         // It is okay to panic here, because this is not a user error. If the lexer
         // works as intended, it will not lex any invalid IntLiteral.
@@ -36,7 +50,7 @@ impl<'a> Parser<'a> {
     /// This is the main entry point for expression parsing. It starts the Pratt
     /// parser with the lowest binding power so that the complete [`Expr`] can
     /// be parsed.
-    pub fn parse_expr(&mut self) -> Expr {
+    pub fn parse_expr(&mut self) -> Result<Expr, ParserError> {
         self.parse_bp(0)
     }
 
@@ -45,13 +59,13 @@ impl<'a> Parser<'a> {
     /// `min_bp` is the minimum binding power an operator must have to become part
     /// of the current expression. Operators with lower binding power are left for
     /// the caller to parse.
-    fn parse_bp(&mut self, min_bp: u8) -> Expr {
-        let mut lhs = self.parse_prefix_expression();
+    fn parse_bp(&mut self, min_bp: u8) -> Result<Expr, ParserError> {
+        let mut lhs = self.parse_prefix_expression()?;
 
         loop {
             // Function calls bind more tightly than binary operators.
             if self.check(TokenKind::OpenParen) {
-                lhs = self.parse_call_expression(lhs);
+                lhs = self.parse_call_expression(lhs)?;
                 continue;
             }
 
@@ -67,10 +81,10 @@ impl<'a> Parser<'a> {
 
             self.advance();
 
-            lhs = self.parse_binary_expression(lhs, op, right_bp);
+            lhs = self.parse_binary_expression(lhs, op, right_bp)?;
         }
 
-        lhs
+        Ok(lhs)
     }
 
     /// Parses an [`Expr`] that begins at the current token.
@@ -81,19 +95,31 @@ impl<'a> Parser<'a> {
     ///
     /// For example, when parsing 1 + 2, this method first parses 1 before the
     /// parser continues with the + operator.
-    fn parse_prefix_expression(&mut self) -> Expr {
+    fn parse_prefix_expression(&mut self) -> Result<Expr, ParserError> {
         let (kind, span) = self
             .advance()
             .map(|token| (token.kind, token.span))
-            .expect("Expected token find eof!");
+            .ok_or_else(|| UnexpectedEofError {
+                at: self.eof_span().into(),
+                src: self.source_file.clone(),
+            })?;
 
-        match kind {
+        let expr = match kind {
             TokenKind::IntLiteral(symbol) => self.parse_integer_literal(symbol, span),
             TokenKind::FloatLiteral(symbol) => self.parse_float_literal(symbol, span),
             TokenKind::Identifier(symbol) => Expr::new(ExprKind::Identifier(symbol), span),
-            TokenKind::OpenParen => self.parse_grouped_expression(span),
-            _ => panic!("Unexpected token!"),
-        }
+            TokenKind::OpenParen => self.parse_grouped_expression(span)?,
+            unexpected => {
+                return Err(ExpectedExpressionError {
+                    at: span.into(),
+                    src: self.source_file.clone(),
+                    found: unexpected,
+                }
+                .into());
+            }
+        };
+
+        Ok(expr)
     }
 
     /// Parses the right-hand side of a binary [`Expr`]  and combines it with the
@@ -105,18 +131,23 @@ impl<'a> Parser<'a> {
     ///
     /// For example, after parsing `1` and consuming `+` in `1 + 2`, this method
     /// parses `2` and produces the Expr `1 + 2`.
-    fn parse_binary_expression(&mut self, lhs: Expr, op: BinaryOp, right_bp: u8) -> Expr {
-        let rhs = self.parse_bp(right_bp);
+    fn parse_binary_expression(
+        &mut self,
+        lhs: Expr,
+        op: BinaryOp,
+        right_bp: u8,
+    ) -> Result<Expr, ParserError> {
+        let rhs = self.parse_bp(right_bp)?;
         let span = Span::from_bounds(lhs.span(), rhs.span());
 
-        Expr::new(
+        Ok(Expr::new(
             ExprKind::Binary {
                 left: Box::new(lhs),
                 op,
                 right: Box::new(rhs),
             },
             span,
-        )
+        ))
     }
 
     /// Parses an [`Expr`]  enclosed in parentheses.
@@ -124,54 +155,80 @@ impl<'a> Parser<'a> {
     /// The opening ( is consumed by the caller before this method is invoked.
     /// This method parses the expression inside the parentheses and then requires
     /// a matching closing ).
-    fn parse_grouped_expression(&mut self, open_pren_span: Span) -> Expr {
-        let mut expr = self.parse_expr();
+    fn parse_grouped_expression(&mut self, open_pren_span: Span) -> Result<Expr, ParserError> {
+        let mut expr = self.parse_expr()?;
 
-        let close_paren = self.expect(TokenKind::CloseParen, "Expected `)` after grouped Expr");
+        let close_paren = self.expect(TokenKind::CloseParen)?;
 
         // Grouping parentheses are omitted from the AST, but the expression span
         // still covers them so diagnostics can reference the full source range.
         let span = Span::from_bounds(open_pren_span, close_paren.span);
         expr.set_span(span);
 
-        expr
+        Ok(expr)
     }
 
     /// Parses a function call whose callee has already been parsed.
     ///
     /// For example, after parsing `foo` in `foo(1, 2)`, this method parses the
     /// argument list and produces a call [`Expr`]  with `foo` as its callee.
-    fn parse_call_expression(&mut self, callee: Expr) -> Expr {
-        self.expect(TokenKind::OpenParen, "Expected `(` after function Expr");
+    fn parse_call_expression(&mut self, callee: Expr) -> Result<Expr, ParserError> {
+        let open_paren = self.expect(TokenKind::OpenParen)?;
+        let open_paren_span = open_paren.span;
 
         let mut arguments = Vec::new();
 
         if !self.check(TokenKind::CloseParen) {
             loop {
-                arguments.push(self.parse_expr());
+                arguments.push(self.parse_expr()?);
 
-                if !self.check(TokenKind::Comma) {
+                if self.check(TokenKind::Comma) {
+                    self.advance();
+                    continue;
+                }
+
+                if self.check(TokenKind::CloseParen) {
                     break;
                 }
 
-                self.advance(); // Consume `,`.
+                // We are missing either a `,` or a `)`.
+                // Check if the current token could be the start of a new expression.
+                if self.is_expr_start() {
+                    // Example: `hello(29, 39 11)`
+                    // The `11` is an expression start. Force a missing comma error here.
+                    self.expect(TokenKind::Comma)?;
+                } else {
+                    // Example: `call(a, b \n` or `call(a, b }`
+                    // The next token (Newline, EOF, etc.) does NOT start an expression.
+                    // Break the loop so the final `expect` below throws the missing `)` error.
+                    break;
+                }
             }
         }
 
-        let close_paren = self.expect(
-            TokenKind::CloseParen,
-            "Expected `)` after function arguments",
-        );
+        let close_paren_span = match self.peek() {
+            Some(token) if token.kind == TokenKind::CloseParen => self.advance().unwrap().span,
+            _ => {
+                // We didn't find a `)`, so we throw the unclosed delimiter error
+                // pointing back to the `(` we saved at the top.
+                return Err(crate::diagnostic::UnclosedDelimiterError {
+                    expected: TokenKind::CloseParen,
+                    opened_at: open_paren_span.into(),
+                    src: self.source_file.clone(),
+                }
+                .into());
+            }
+        };
 
-        let span = Span::from_bounds(callee.span(), close_paren.span);
+        let span = Span::from_bounds(callee.span(), close_paren_span);
 
-        Expr::new(
+        Ok(Expr::new(
             ExprKind::Call {
                 callee: Box::new(callee),
                 arguments,
             },
             span,
-        )
+        ))
     }
 }
 
@@ -182,13 +239,13 @@ mod tests {
     use rstest::rstest;
 
     fn parse_expression(source: &str) -> Expr {
-        let mut lexer = make_lexer(source);
+        let (mut lexer, source_file) = make_lexer(source);
 
         let tokens = lexer.by_ref().map(|tok| tok.unwrap()).collect::<Vec<_>>();
 
-        let mut parser = Parser::new(&tokens, &lexer.symbol_registry);
+        let mut parser = Parser::new(&tokens, &lexer.symbol_registry, source_file);
 
-        parser.parse_expr()
+        parser.parse_expr().unwrap()
     }
 
     fn int(value: i64) -> Expr {

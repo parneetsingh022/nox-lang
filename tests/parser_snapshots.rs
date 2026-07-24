@@ -4,13 +4,13 @@ use common::make_lexer;
 use nox_lang::parser::Parser;
 
 fn parse_expression_debug(source: &str) -> String {
-    let mut lexer = make_lexer(source);
+    let (mut lexer, source_file) = make_lexer(source);
     let tokens = lexer.by_ref().map(|res| res.unwrap()).collect::<Vec<_>>();
 
     let registry = lexer.take_registry();
 
-    let mut parser = Parser::new(&tokens, &registry);
-    let expression = parser.parse_expr();
+    let mut parser = Parser::new(&tokens, &registry, source_file);
+    let expression = parser.parse_expr().unwrap();
 
     format!("{:#?}", expression.debug_with(&registry))
 }
