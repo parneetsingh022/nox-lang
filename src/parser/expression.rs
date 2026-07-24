@@ -430,6 +430,30 @@ mod tests {
     }
 
     #[test]
+    fn parses_unary_identifier() {
+        let expr = parse_expression("-foo");
+
+        let ExprKind::Unary { op, expr: inner } = expr.kind() else {
+            panic!("Expected unary expression");
+        };
+
+        assert_eq!(*op, UnaryOp::Minus);
+        assert!(matches!(inner.kind(), ExprKind::Identifier(_)));
+    }
+
+    #[test]
+    fn parses_unary_call() {
+        let expr = parse_expression("!foo()");
+
+        let ExprKind::Unary { op, expr: inner } = expr.kind() else {
+            panic!("Expected unary expression");
+        };
+
+        assert_eq!(*op, UnaryOp::Not);
+        assert!(matches!(inner.kind(), ExprKind::Call { .. }));
+    }
+
+    #[test]
     fn unary_binds_tighter_than_addition() {
         // -1 + 2 should be parsed as (-1) + 2, not -(1 + 2)
         let expr = parse_expression("-1 + 2");
