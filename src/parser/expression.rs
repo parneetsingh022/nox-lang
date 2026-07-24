@@ -15,23 +15,34 @@ fn is_unary_operator(token_kind: TokenKind) -> bool {
     matches!(token_kind, TokenKind::Minus | TokenKind::Bang)
 }
 
+/// Identifies whether a [`TokenKind`] represents an atomic, irreducible primary expression.
+///
+/// In the Pratt parser, primary expressions—such as variables, literal constants,
+/// and explicitly grouped sub-expressions—form the foundational leaf nodes of the AST.
+fn is_primary_expr_start(token_kind: TokenKind) -> bool {
+    matches!(
+        token_kind,
+        TokenKind::Identifier(_)
+            | TokenKind::IntLiteral(_)
+            | TokenKind::FloatLiteral(_)
+            | TokenKind::OpenParen
+    )
+}
+
 impl<'a> Parser<'a> {
+    /// Checks if the upcoming token can start an expression.
+    ///
+    /// The parser uses this to figure out if it's safe to begin parsing an expression
+    /// (the `nud` step). It simply peeks ahead and returns `true` if the next token is
+    /// either a unary operator or a primary expression.
+    ///
+    /// Returns `false` if we've run out of tokens.
     fn is_expr_start(&self) -> bool {
         let Some(current) = self.peek().map(|tok| tok.kind) else {
             return false;
         };
 
-        if is_unary_operator(current) {
-            return true;
-        }
-
-        matches!(
-            current,
-            TokenKind::Identifier(_)
-                | TokenKind::IntLiteral(_)
-                | TokenKind::FloatLiteral(_)
-                | TokenKind::OpenParen
-        )
+        is_unary_operator(current) | is_primary_expr_start(current)
     }
 
     fn parse_integer_literal(&self, symbol: Symbol, span: Span) -> Expr {
@@ -122,7 +133,7 @@ impl<'a> Parser<'a> {
             TokenKind::FloatLiteral(symbol) => self.parse_float_literal(symbol, span),
             TokenKind::Identifier(symbol) => Expr::new(ExprKind::Identifier(symbol), span),
             TokenKind::OpenParen => self.parse_grouped_expression(span)?,
-            unary if is_unary_operator(unary) => self.parse_unary_expr()?,
+            unary_op if is_unary_operator(unary_op) => self.parse_unary_expr()?,
             unexpected => {
                 return Err(ExpectedExpressionError {
                     at: span.into(),
