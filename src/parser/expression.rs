@@ -18,6 +18,7 @@ impl<'a> Parser<'a> {
                 | TokenKind::IntLiteral(_)
                 | TokenKind::FloatLiteral(_)
                 | TokenKind::OpenParen
+                | TokenKind::Minus
         )
     }
 
@@ -109,6 +110,7 @@ impl<'a> Parser<'a> {
             TokenKind::FloatLiteral(symbol) => self.parse_float_literal(symbol, span),
             TokenKind::Identifier(symbol) => Expr::new(ExprKind::Identifier(symbol), span),
             TokenKind::OpenParen => self.parse_grouped_expression(span)?,
+            TokenKind::Minus => self.parse_negation()?,
             unexpected => {
                 return Err(ExpectedExpressionError {
                     at: span.into(),
@@ -221,6 +223,10 @@ impl<'a> Parser<'a> {
             },
             span,
         ))
+    }
+
+    fn parse_negation(&self) -> Result<Expr, ParserError> {
+        todo!()
     }
 }
 
