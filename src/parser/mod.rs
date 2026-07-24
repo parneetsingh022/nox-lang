@@ -85,4 +85,22 @@ impl<'a> Parser<'a> {
             .into()),
         }
     }
+
+    /// Expects a closing delimiter (like `)` or `}`).
+    /// If the token is missing, throws an UnclosedDelimiterError pointing to the `opened_at` span.
+    pub fn expect_closing(
+        &mut self,
+        expected: TokenKind,
+        opened_at: Span,
+    ) -> Result<&Token, ParserError> {
+        match self.peek() {
+            Some(token) if token.kind == expected => Ok(self.advance().unwrap()),
+            _ => Err(crate::diagnostic::UnclosedDelimiterError {
+                expected,
+                opened_at: opened_at.into(),
+                src: self.source_file.clone(),
+            }
+            .into()),
+        }
+    }
 }

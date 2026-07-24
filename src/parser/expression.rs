@@ -155,14 +155,16 @@ impl<'a> Parser<'a> {
     /// The opening ( is consumed by the caller before this method is invoked.
     /// This method parses the expression inside the parentheses and then requires
     /// a matching closing ).
-    fn parse_grouped_expression(&mut self, open_pren_span: Span) -> Result<Expr, ParserError> {
+    fn parse_grouped_expression(&mut self, open_paren_span: Span) -> Result<Expr, ParserError> {
         let mut expr = self.parse_expr()?;
 
-        let close_paren = self.expect(TokenKind::CloseParen)?;
+        let close_paren_span = self
+            .expect_closing(TokenKind::CloseParen, open_paren_span)?
+            .span;
 
         // Grouping parentheses are omitted from the AST, but the expression span
         // still covers them so diagnostics can reference the full source range.
-        let span = Span::from_bounds(open_pren_span, close_paren.span);
+        let span = Span::from_bounds(open_paren_span, close_paren_span);
         expr.set_span(span);
 
         Ok(expr)
@@ -206,19 +208,9 @@ impl<'a> Parser<'a> {
             }
         }
 
-        let close_paren_span = match self.peek() {
-            Some(token) if token.kind == TokenKind::CloseParen => self.advance().unwrap().span,
-            _ => {
-                // We didn't find a `)`, so we throw the unclosed delimiter error
-                // pointing back to the `(` we saved at the top.
-                return Err(crate::diagnostic::UnclosedDelimiterError {
-                    expected: TokenKind::CloseParen,
-                    opened_at: open_paren_span.into(),
-                    src: self.source_file.clone(),
-                }
-                .into());
-            }
-        };
+        let close_paren_span = self
+            .expect_closing(TokenKind::CloseParen, open_paren_span)?
+            .span;
 
         let span = Span::from_bounds(callee.span(), close_paren_span);
 
