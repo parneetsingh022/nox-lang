@@ -1,10 +1,11 @@
 use std::fmt;
 
+use phf::phf_map;
+
 use crate::{
     diagnostic::Span,
     lexer::{Symbol, SymbolRegistry},
 };
-use phf::phf_map;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Keyword {

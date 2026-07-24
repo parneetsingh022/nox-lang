@@ -1,8 +1,9 @@
 pub mod symbol_registry;
 pub mod token;
-
-pub use symbol_registry::{Symbol, SymbolRegistry};
-pub use token::{Keyword, Token, TokenKind};
+pub use self::{
+    symbol_registry::{Symbol, SymbolRegistry},
+    token::{Keyword, Token, TokenKind},
+};
 
 use miette::SourceSpan;
 
