@@ -26,9 +26,8 @@ fn is_primary_expr_start(token_kind: TokenKind) -> bool {
             | TokenKind::IntLiteral(_)
             | TokenKind::FloatLiteral(_)
             | TokenKind::OpenParen
-            // Boolean expressions
-            | TokenKind::Keyword(Keyword::True)
-            | TokenKind::Keyword(Keyword::False)
+            // A boolean "true" or "false" can also start an expression
+            | TokenKind::Keyword(Keyword::True | Keyword::False)
     )
 }
 
@@ -350,6 +349,21 @@ mod tests {
             },
             Span::default(),
         )
+    }
+
+    fn parse_expression_error(source: &str) -> ParserError {
+        let (mut lexer, source_file) = make_lexer(source);
+
+        let tokens = lexer
+            .by_ref()
+            .map(|token| token.unwrap())
+            .collect::<Vec<_>>();
+
+        let mut parser = Parser::new(&tokens, &lexer.symbol_registry, source_file);
+
+        parser
+            .parse_expr()
+            .expect_err("expected expression parsing to fail")
     }
 
     #[rstest]
@@ -723,5 +737,26 @@ mod tests {
         } else {
             panic!("Expected unary expression");
         }
+    }
+
+    #[test]
+    fn open_paren_can_start_primary_expression() {
+        assert!(is_primary_expr_start(TokenKind::OpenParen));
+    }
+
+    #[test]
+    fn open_brace_cannot_start_primary_expression() {
+        assert!(!is_primary_expr_start(TokenKind::OpenBrace));
+    }
+
+    #[test]
+    fn reports_missing_comma_between_arguments() {
+        let error = parse_expression_error("foo(1 true)");
+
+        let ParserError::ExpectedToken(error) = error else {
+            panic!("expected a missing-comma error, got: {error}");
+        };
+
+        assert_eq!(error.expected, TokenKind::Comma);
     }
 }

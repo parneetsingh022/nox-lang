@@ -97,12 +97,13 @@ impl TokenKind {
         Keyword::from_str(keyword).ok().map(Self::Keyword)
     }
 
+    /// Returns `true` if this token is a keyword.
     pub fn is_keyword(&self) -> bool {
         matches!(self, Self::Keyword(_))
     }
-
+    /// Returns `true` if this token is a boolean keyword.
     pub fn is_boolean(&self) -> bool {
-        matches!(self, Self::Keyword(kw) if kw.is_boolean())
+        matches!(self, Self::Keyword(keyword) if keyword.is_boolean())
     }
 
     pub fn identifier(registry: &mut SymbolRegistry, value: &str) -> Self {
