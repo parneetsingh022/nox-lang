@@ -11,11 +11,15 @@ use crate::{
 pub enum Keyword {
     Let,
     Const,
+    True,  // Boolean 'true'
+    False, // Boolean 'false'
 }
 
 static KEYWORDS: phf::Map<&'static str, Keyword> = phf_map! {
     "let"   => Keyword::Let,
     "const" => Keyword::Const,
+    "true"  => Keyword::True,
+    "false" => Keyword::False
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -25,11 +29,6 @@ pub enum TokenKind {
 
     IntLiteral(Symbol),
     FloatLiteral(Symbol),
-
-    /// Boolean True
-    True,
-    /// Booelan False
-    False,
 
     /// `&&`
     And,
@@ -98,22 +97,15 @@ impl TokenKind {
         KEYWORDS.get(keyword).copied().map(TokenKind::Keyword)
     }
 
-    pub fn map_boolean(ident: &str) -> Option<TokenKind> {
-        if ident == "true" {
-            return Some(TokenKind::True);
-        } else if ident == "false" {
-            return Some(TokenKind::False);
-        }
-
-        None
-    }
-
     pub fn is_keyword(&self, kw: Keyword) -> bool {
         matches!(self, TokenKind::Keyword(k) if *k == kw)
     }
 
     pub fn is_boolean(&self) -> bool {
-        matches!(self, TokenKind::True | TokenKind::False)
+        matches!(
+            self,
+            TokenKind::Keyword(Keyword::True) | TokenKind::Keyword(Keyword::False)
+        )
     }
 
     pub fn identifier(registry: &mut SymbolRegistry, value: &str) -> Self {
@@ -141,9 +133,6 @@ impl fmt::Display for TokenKind {
             Self::Keyword(_) => write!(f, "keyword"),
             Self::IntLiteral(_) => write!(f, "integer literal"),
             Self::FloatLiteral(_) => write!(f, "float literal"),
-
-            Self::True => write!(f, "true"),
-            Self::False => write!(f, "false"),
 
             Self::And => write!(f, "&&"),
             Self::Or => write!(f, "||"),

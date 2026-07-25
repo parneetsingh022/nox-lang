@@ -1,9 +1,9 @@
 use crate::{
     diagnostic::{ExpectedExpressionError, ParserError, Span, UnexpectedEofError},
-    lexer::{Symbol, TokenKind},
+    lexer::{Keyword, Symbol, TokenKind},
     parser::{
         Parser,
-        ast::{BinaryOp, BoolKind, Expr, ExprKind, UnaryOp},
+        ast::{BinaryOp, Expr, ExprKind, UnaryOp},
     },
 };
 
@@ -27,8 +27,8 @@ fn is_primary_expr_start(token_kind: TokenKind) -> bool {
             | TokenKind::FloatLiteral(_)
             | TokenKind::OpenParen
             // Boolean expressions
-            | TokenKind::True
-            | TokenKind::False
+            | TokenKind::Keyword(Keyword::True)
+            | TokenKind::Keyword(Keyword::False)
     )
 }
 
@@ -50,8 +50,8 @@ impl<'a> Parser<'a> {
 
     fn parse_boolean(&self, kind: TokenKind, span: Span) -> Expr {
         let value = match kind {
-            TokenKind::True => BoolKind::True,
-            TokenKind::False => BoolKind::False,
+            TokenKind::Keyword(Keyword::True) => true,
+            TokenKind::Keyword(Keyword::False) => false,
             unexpected => {
                 unreachable!("parse_boolean called with non-boolean token: {unexpected:?}")
             }
@@ -327,7 +327,7 @@ mod tests {
         Expr::new(ExprKind::FloatLiteral(value), Span::default())
     }
 
-    fn boolean(value: BoolKind) -> Expr {
+    fn boolean(value: bool) -> Expr {
         Expr::new(ExprKind::Bool(value), Span::default())
     }
 
@@ -363,8 +363,8 @@ mod tests {
     }
 
     #[rstest]
-    #[case("true", boolean(BoolKind::True))]
-    #[case("false", boolean(BoolKind::False))]
+    #[case("true", boolean(true))]
+    #[case("false", boolean(false))]
     fn parses_boolean_literals(#[case] source: &str, #[case] expected: Expr) {
         assert_eq!(parse_expression(source), expected);
     }
@@ -473,13 +473,13 @@ mod tests {
         binary(
             int(1),
             BinaryOp::Plus,
-            binary(int(2), BinaryOp::Multiply, boolean(BoolKind::False),),
+            binary(int(2), BinaryOp::Multiply, boolean(false),),
         )
     )]
     #[case(
         "(true + 1) * 2",
         binary(
-            binary(boolean(BoolKind::True), BinaryOp::Plus, int(1),),
+            binary(boolean(true), BinaryOp::Plus, int(1),),
             BinaryOp::Multiply,
             int(2),
         )
@@ -487,9 +487,9 @@ mod tests {
     #[case(
         "true + false * 2",
         binary(
-            boolean(BoolKind::True),
+            boolean(true),
             BinaryOp::Plus,
-            binary(boolean(BoolKind::False), BinaryOp::Multiply, int(2),),
+            binary(boolean(false), BinaryOp::Multiply, int(2),),
         )
     )]
     fn parses_booleans_in_complex_expressions(#[case] source: &str, #[case] expected: Expr) {
@@ -503,7 +503,7 @@ mod tests {
         let expected = binary(
             int(1),
             BinaryOp::Plus,
-            binary(int(2), BinaryOp::Multiply, boolean(BoolKind::False)),
+            binary(int(2), BinaryOp::Multiply, boolean(false)),
         );
 
         assert_eq!(expr, expected);
@@ -514,7 +514,7 @@ mod tests {
         let expr = parse_expression("(true + 1) * 2");
 
         let expected = binary(
-            binary(boolean(BoolKind::True), BinaryOp::Plus, int(1)),
+            binary(boolean(true), BinaryOp::Plus, int(1)),
             BinaryOp::Multiply,
             int(2),
         );

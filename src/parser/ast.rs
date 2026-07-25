@@ -5,13 +5,6 @@ use crate::{
     lexer::{Symbol, SymbolRegistry, Token, TokenKind},
 };
 
-/// This represents an boolean expression type for the language.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BoolKind {
-    True,
-    False,
-}
-
 /// Represents unary operations in expressions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UnaryOp {
@@ -121,7 +114,7 @@ pub enum ExprKind {
     IntLiteral(i64),
     FloatLiteral(f64),
     Identifier(Symbol),
-    Bool(BoolKind),
+    Bool(bool),
     Binary {
         left: Box<Expr>,
         op: BinaryOp,
