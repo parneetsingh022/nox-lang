@@ -1,6 +1,4 @@
-mod common;
-
-use common::make_lexer;
+use crate::common::make_lexer;
 use nox_lang::parser::Parser;
 
 fn parse_expression_debug(source: &str) -> String {

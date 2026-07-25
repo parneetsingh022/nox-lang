@@ -1,6 +1,4 @@
-mod common;
-
-use common::make_lexer;
+use crate::common::make_lexer;
 use nox_lang::lexer::TokenKind;
 
 fn snapshot_tokens(source: &str) -> String {
