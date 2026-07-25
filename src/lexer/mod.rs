@@ -413,12 +413,6 @@ impl Lexer {
         let span = self.read_while(is_ident_continue);
         let ident = self.source_file.slice(span);
 
-        // Check if given identifier is a possible boolean token,
-        // (i.e. "true" or "false").
-        if let Some(kind) = TokenKind::map_boolean(ident) {
-            return Token::new(kind, span);
-        }
-
         // Attempt to classify the identifier as a language keyword.
         // If it is not a keyword, fall back to treating it as a standard identifier.
         let kind = TokenKind::map_keyword(ident)
@@ -720,8 +714,8 @@ mod tests {
         }
 
         #[rstest]
-        #[case("false", TokenKind::False)]
-        #[case("true", TokenKind::True)]
+        #[case("false", TokenKind::Keyword(Keyword::False))]
+        #[case("true", TokenKind::Keyword(Keyword::True))]
         fn test_individual_boolean(#[case] code: &str, #[case] expected: TokenKind) {
             let (mut lexer, _) = make_lexer(code);
             let token = next_token(&mut lexer);
@@ -789,13 +783,13 @@ print(false);
 
             assert_token!(&mut lexer, TokenKind::Identifier, "print");
             assert_token!(&mut lexer, TokenKind::OpenParen);
-            assert_token!(&mut lexer, TokenKind::True);
+            assert_token!(&mut lexer, TokenKind::Keyword(Keyword::True));
             assert_token!(&mut lexer, TokenKind::CloseParen);
             assert_token!(&mut lexer, TokenKind::Semi);
 
             assert_token!(&mut lexer, TokenKind::Identifier, "print");
             assert_token!(&mut lexer, TokenKind::OpenParen);
-            assert_token!(&mut lexer, TokenKind::False);
+            assert_token!(&mut lexer, TokenKind::Keyword(Keyword::False));
             assert_token!(&mut lexer, TokenKind::CloseParen);
             assert_token!(&mut lexer, TokenKind::Semi);
 
