@@ -1,13 +1,14 @@
-use std::fmt;
+use std::{fmt, str::FromStr};
 
-use phf::phf_map;
+use strum_macros::{Display, EnumString};
 
 use crate::{
     diagnostic::Span,
     lexer::{Symbol, SymbolRegistry},
 };
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Display, Clone, Copy, Eq, PartialEq, EnumString)]
+#[strum(serialize_all = "snake_case")]
 pub enum Keyword {
     Let,
     Const,
@@ -15,12 +16,11 @@ pub enum Keyword {
     False, // Boolean 'false'
 }
 
-static KEYWORDS: phf::Map<&'static str, Keyword> = phf_map! {
-    "let"   => Keyword::Let,
-    "const" => Keyword::Const,
-    "true"  => Keyword::True,
-    "false" => Keyword::False
-};
+impl Keyword {
+    pub fn is_boolean(&self) -> bool {
+        matches!(self, Self::True | Self::False)
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TokenKind {
@@ -93,30 +93,27 @@ pub enum TokenKind {
 }
 
 impl TokenKind {
-    pub fn map_keyword(keyword: &str) -> Option<TokenKind> {
-        KEYWORDS.get(keyword).copied().map(TokenKind::Keyword)
+    pub fn map_keyword(keyword: &str) -> Option<Self> {
+        Keyword::from_str(keyword).ok().map(Self::Keyword)
     }
 
-    pub fn is_keyword(&self, kw: Keyword) -> bool {
-        matches!(self, TokenKind::Keyword(k) if *k == kw)
+    pub fn is_keyword(&self) -> bool {
+        matches!(self, Self::Keyword(_))
     }
 
     pub fn is_boolean(&self) -> bool {
-        matches!(
-            self,
-            TokenKind::Keyword(Keyword::True) | TokenKind::Keyword(Keyword::False)
-        )
+        matches!(self, Self::Keyword(kw) if kw.is_boolean())
     }
 
     pub fn identifier(registry: &mut SymbolRegistry, value: &str) -> Self {
         Self::intern(registry, value, Self::Identifier)
     }
 
-    pub fn int_literal(registry: &mut SymbolRegistry, value: &str) -> TokenKind {
+    pub fn int_literal(registry: &mut SymbolRegistry, value: &str) -> Self {
         Self::intern(registry, value, Self::IntLiteral)
     }
 
-    pub fn float_literal(registry: &mut SymbolRegistry, value: &str) -> TokenKind {
+    pub fn float_literal(registry: &mut SymbolRegistry, value: &str) -> Self {
         Self::intern(registry, value, Self::FloatLiteral)
     }
 
@@ -130,7 +127,7 @@ impl fmt::Display for TokenKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Identifier(_) => write!(f, "identifier"),
-            Self::Keyword(_) => write!(f, "keyword"),
+            Self::Keyword(kw) => write!(f, "{kw}"),
             Self::IntLiteral(_) => write!(f, "integer literal"),
             Self::FloatLiteral(_) => write!(f, "float literal"),
 
@@ -178,5 +175,24 @@ pub struct Token {
 impl Token {
     pub fn new(kind: TokenKind, span: Span) -> Self {
         Self { kind, span }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn displays_brace_tokens() {
+        assert_eq!(TokenKind::OpenBrace.to_string(), "{");
+        assert_eq!(TokenKind::CloseBrace.to_string(), "}");
+    }
+
+    #[test]
+    fn displays_keyword_tokens() {
+        assert_eq!(TokenKind::Keyword(Keyword::Let).to_string(), "let");
+        assert_eq!(TokenKind::Keyword(Keyword::Const).to_string(), "const");
+        assert_eq!(TokenKind::Keyword(Keyword::True).to_string(), "true");
+        assert_eq!(TokenKind::Keyword(Keyword::False).to_string(), "false");
     }
 }
