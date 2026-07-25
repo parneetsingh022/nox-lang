@@ -22,6 +22,7 @@ pub fn make_lexer(code: &str) -> (Lexer, SourceFile) {
 ///
 /// This includes spaces, tabs, newlines, carriage returns, and other ASCII
 /// whitespace bytes recognized by [`u8::is_ascii_whitespace`].
+#[inline]
 fn is_whitespace(ch: char) -> bool {
     ch.is_ascii_whitespace()
 }
@@ -30,6 +31,7 @@ fn is_whitespace(ch: char) -> bool {
 ///
 /// Identifiers may start with an ASCII letter (`a-z`, `A-Z`) or an underscore
 /// (`_`).
+#[inline]
 fn is_ident_start(ch: char) -> bool {
     ch.is_ascii_alphabetic() || ch == '_'
 }
@@ -38,6 +40,7 @@ fn is_ident_start(ch: char) -> bool {
 ///
 /// After the first character, identifiers may contain ASCII letters, digits
 /// (`0-9`), or underscores (`_`).
+#[inline]
 fn is_ident_continue(ch: char) -> bool {
     ch.is_ascii_alphanumeric() || ch == '_'
 }
@@ -410,12 +413,18 @@ impl Lexer {
         let span = self.read_while(is_ident_continue);
         let ident = self.source_file.slice(span);
 
+        // Check if given identifier is a possible boolean token,
+        // (i.e. "true" or "false").
+        if let Some(kind) = TokenKind::map_boolean(ident) {
+            return Token::new(kind, span);
+        }
+
         // Attempt to classify the identifier as a language keyword.
         // If it is not a keyword, fall back to treating it as a standard identifier.
-        let token_kind = TokenKind::map_keyword(ident)
+        let kind = TokenKind::map_keyword(ident)
             .unwrap_or(TokenKind::identifier(&mut self.symbol_registry, ident));
 
-        Token::new(token_kind, span)
+        Token::new(kind, span)
     }
 
     /// Lexes an integer or floating-point number.
@@ -711,6 +720,16 @@ mod tests {
         }
 
         #[rstest]
+        #[case("false", TokenKind::False)]
+        #[case("true", TokenKind::True)]
+        fn test_individual_boolean(#[case] code: &str, #[case] expected: TokenKind) {
+            let (mut lexer, _) = make_lexer(code);
+            let token = next_token(&mut lexer);
+            assert_eq!(token.kind, expected);
+            assert_eof(&mut lexer);
+        }
+
+        #[rstest]
         #[case("+", TokenKind::Plus)]
         #[case("++", TokenKind::PlusPlus)]
         #[case("-", TokenKind::Minus)]
@@ -749,6 +768,8 @@ let x = 10; // this is comment
 // let z = 20;
 // last line must be excluded
 print(x);
+print(true);
+print(false);
 "#;
 
             let (mut lexer, _) = make_lexer(code);
@@ -763,6 +784,18 @@ print(x);
             assert_token!(&mut lexer, TokenKind::Identifier, "print");
             assert_token!(&mut lexer, TokenKind::OpenParen);
             assert_token!(&mut lexer, TokenKind::Identifier, "x");
+            assert_token!(&mut lexer, TokenKind::CloseParen);
+            assert_token!(&mut lexer, TokenKind::Semi);
+
+            assert_token!(&mut lexer, TokenKind::Identifier, "print");
+            assert_token!(&mut lexer, TokenKind::OpenParen);
+            assert_token!(&mut lexer, TokenKind::True);
+            assert_token!(&mut lexer, TokenKind::CloseParen);
+            assert_token!(&mut lexer, TokenKind::Semi);
+
+            assert_token!(&mut lexer, TokenKind::Identifier, "print");
+            assert_token!(&mut lexer, TokenKind::OpenParen);
+            assert_token!(&mut lexer, TokenKind::False);
             assert_token!(&mut lexer, TokenKind::CloseParen);
             assert_token!(&mut lexer, TokenKind::Semi);
 
