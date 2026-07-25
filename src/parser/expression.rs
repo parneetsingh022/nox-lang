@@ -3,7 +3,7 @@ use crate::{
     lexer::{Symbol, TokenKind},
     parser::{
         Parser,
-        ast::{BinaryOp, Expr, ExprKind, UnaryOp},
+        ast::{BinaryOp, BoolKind, Expr, ExprKind, UnaryOp},
     },
 };
 
@@ -26,6 +26,9 @@ fn is_primary_expr_start(token_kind: TokenKind) -> bool {
             | TokenKind::IntLiteral(_)
             | TokenKind::FloatLiteral(_)
             | TokenKind::OpenParen
+            // Boolean expressions
+            | TokenKind::True
+            | TokenKind::False
     )
 }
 
@@ -43,6 +46,18 @@ impl<'a> Parser<'a> {
         };
 
         is_unary_operator(current) | is_primary_expr_start(current)
+    }
+
+    fn parse_boolean(&self, kind: TokenKind, span: Span) -> Expr {
+        let value = match kind {
+            TokenKind::True => BoolKind::True,
+            TokenKind::False => BoolKind::False,
+            unexpected => {
+                unreachable!("parse_boolean called with non-boolean token: {unexpected:?}")
+            }
+        };
+
+        Expr::new(ExprKind::Bool(value), span)
     }
 
     fn parse_integer_literal(&self, symbol: Symbol, span: Span) -> Expr {
@@ -133,12 +148,13 @@ impl<'a> Parser<'a> {
             TokenKind::FloatLiteral(symbol) => self.parse_float_literal(symbol, span),
             TokenKind::Identifier(symbol) => Expr::new(ExprKind::Identifier(symbol), span),
             TokenKind::OpenParen => self.parse_grouped_expression(span)?,
-            unary_op if is_unary_operator(unary_op) => self.parse_unary_expr()?,
-            unexpected => {
+            _ if kind.is_boolean() => self.parse_boolean(kind, span),
+            _ if is_unary_operator(kind) => self.parse_unary_expr()?,
+            _ => {
                 return Err(ExpectedExpressionError {
                     at: span.into(),
                     src: self.source_file.clone(),
-                    found: unexpected,
+                    found: kind,
                 }
                 .into());
             }
@@ -311,6 +327,10 @@ mod tests {
         Expr::new(ExprKind::FloatLiteral(value), Span::default())
     }
 
+    fn boolean(value: BoolKind) -> Expr {
+        Expr::new(ExprKind::Bool(value), Span::default())
+    }
+
     fn binary(left: Expr, op: BinaryOp, right: Expr) -> Expr {
         Expr::new(
             ExprKind::Binary {
@@ -339,6 +359,13 @@ mod tests {
     #[case("3.14", float(3.14))]
     #[case("0.5", float(0.5))]
     fn parses_literals(#[case] source: &str, #[case] expected: Expr) {
+        assert_eq!(parse_expression(source), expected);
+    }
+
+    #[rstest]
+    #[case("true", boolean(BoolKind::True))]
+    #[case("false", boolean(BoolKind::False))]
+    fn parses_boolean_literals(#[case] source: &str, #[case] expected: Expr) {
         assert_eq!(parse_expression(source), expected);
     }
 
@@ -440,6 +467,60 @@ mod tests {
         assert_eq!(parse_expression(source), expected);
     }
 
+    #[rstest]
+    #[case(
+        "1 + 2 * (false)",
+        binary(
+            int(1),
+            BinaryOp::Plus,
+            binary(int(2), BinaryOp::Multiply, boolean(BoolKind::False),),
+        )
+    )]
+    #[case(
+        "(true + 1) * 2",
+        binary(
+            binary(boolean(BoolKind::True), BinaryOp::Plus, int(1),),
+            BinaryOp::Multiply,
+            int(2),
+        )
+    )]
+    #[case(
+        "true + false * 2",
+        binary(
+            boolean(BoolKind::True),
+            BinaryOp::Plus,
+            binary(boolean(BoolKind::False), BinaryOp::Multiply, int(2),),
+        )
+    )]
+    fn parses_booleans_in_complex_expressions(#[case] source: &str, #[case] expected: Expr) {
+        assert_eq!(parse_expression(source), expected);
+    }
+
+    #[test]
+    fn parses_boolean_inside_complex_expression() {
+        let expr = parse_expression("1 + 2 * (false)");
+
+        let expected = binary(
+            int(1),
+            BinaryOp::Plus,
+            binary(int(2), BinaryOp::Multiply, boolean(BoolKind::False)),
+        );
+
+        assert_eq!(expr, expected);
+    }
+
+    #[test]
+    fn parses_grouped_boolean_expression() {
+        let expr = parse_expression("(true + 1) * 2");
+
+        let expected = binary(
+            binary(boolean(BoolKind::True), BinaryOp::Plus, int(1)),
+            BinaryOp::Multiply,
+            int(2),
+        );
+
+        assert_eq!(expr, expected);
+    }
     #[test]
     fn parses_unary_identifier() {
         let expr = parse_expression("-foo");

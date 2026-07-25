@@ -112,8 +112,8 @@ impl TokenKind {
         matches!(self, TokenKind::Keyword(k) if *k == kw)
     }
 
-    pub fn is_boolean(&self, token: TokenKind) -> bool {
-        matches!(token, TokenKind::True | TokenKind::False)
+    pub fn is_boolean(&self) -> bool {
+        matches!(self, TokenKind::True | TokenKind::False)
     }
 
     pub fn identifier(registry: &mut SymbolRegistry, value: &str) -> Self {
