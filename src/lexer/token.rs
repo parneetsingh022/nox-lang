@@ -97,8 +97,8 @@ impl TokenKind {
         KEYWORDS.get(keyword).copied().map(TokenKind::Keyword)
     }
 
-    pub fn is_keyword(&self, kw: Keyword) -> bool {
-        matches!(self, TokenKind::Keyword(k) if *k == kw)
+    pub fn is_keyword(&self) -> bool {
+        matches!(self, TokenKind::Keyword(_))
     }
 
     pub fn is_boolean(&self) -> bool {
