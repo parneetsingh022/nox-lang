@@ -1,0 +1,48 @@
+* text=auto
+
+# -------------------------------------------------------------------
+# Source Code & Configs
+# Force LF (Unix) line endings to prevent cross-platform formatting
+# diffs and keep CI environments (like GitHub Actions) happy.
+# -------------------------------------------------------------------
+*.rs text eol=lf
+Cargo.toml text eol=lf
+Cargo.lock text eol=lf
+
+# -------------------------------------------------------------------
+# Testing
+# Insta snapshots must be LF so tests don't fail on Linux/macOS CI
+# -------------------------------------------------------------------
+*.snap text eol=lf
+
+# -------------------------------------------------------------------
+# Documentation & Data
+# -------------------------------------------------------------------
+*.md text eol=lf
+*.txt text eol=lf
+*.json text eol=lf
+*.toml text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# -------------------------------------------------------------------
+# Scripts
+# -------------------------------------------------------------------
+# Shell scripts MUST have LF line endings to run on Linux/macOS
+*.sh text eol=lf
+
+# Windows scripts MUST have CRLF line endings to run properly
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# -------------------------------------------------------------------
+# Binary Files
+# Explicitly tell Git not to mess with line endings for binaries
+# -------------------------------------------------------------------
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.pdf binary
+*.wasm binary
