@@ -1,0 +1,13 @@
+---
+source: tests/parser/parser_errors_snapshots.rs
+expression: snapshot_parser_errors(source)
+---
+nox::parser::expected_token
+
+  × expected `,`, found `integer literal`
+   ╭─[main.nox:1:19]
+ 1 │ my_func(10, name, age 11)
+   ·                   ─┬─
+   ·                    ╰── expected `,` after this
+   ╰────
+  help: insert the missing token or remove the unexpected one

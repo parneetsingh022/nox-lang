@@ -1,6 +1,6 @@
 ---
-source: tests/lexer_snapshots.rs
-expression: "tokens.join(\"\\n\")"
+source: tests/lexer/lexer_snapshots.rs
+expression: snapshot_tokens(source)
 ---
 kind: Keyword(Let)
 pos:  4:1

@@ -1,5 +1,5 @@
 ---
-source: tests/lexer_snapshots.rs
+source: tests/lexer/lexer_snapshots.rs
 expression: snapshot_tokens(source)
 ---
 kind: Identifier("if")

@@ -1,0 +1,14 @@
+---
+source: tests/lexer/lexer_error_snapshots.rs
+expression: "snapshot_lexer_errors(\"unexpected 😀 error\")"
+---
+nox::unexpected_char
+
+  × Unexpected character '😀'
+   ╭─[main.nox:1:12]
+ 1 │ unexpected 😀 error
+   ·            ─┬
+   ·             ╰── invalid character
+   ╰────
+  help: The symbol '😀' is not recognized by nox. Ensure your code only uses
+        valid identifiers, operators, and syntax.

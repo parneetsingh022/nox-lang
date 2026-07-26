@@ -1,0 +1,13 @@
+---
+source: tests/parser/parser_errors_snapshots.rs
+expression: snapshot_parser_errors(source)
+---
+nox::parser::expected_expression
+
+  × expected an expression, found `*`
+   ╭─[main.nox:1:6]
+ 1 │ 10 + * 5
+   ·      ┬
+   ·      ╰── expected an expression here
+   ╰────
+  help: remove the unexpected token or provide the missing expression

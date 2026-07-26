@@ -1,5 +1,5 @@
 ---
-source: tests/parser_snapshots.rs
+source: tests/parser/parser_snapshots.rs
 expression: ast
 ---
 Call {
