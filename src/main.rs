@@ -41,8 +41,8 @@ fn main() {
     }
 
     let mut parser = Parser::new(&tokens, &lexer.symbol_registry, source_file.clone());
-    match parser.parse_expr() {
-        Ok(expr) => println!("{:#?}", expr.debug_with(&lexer.symbol_registry)),
+    match parser.parse_stmt() {
+        Ok(stmt) => println!("{:#?}", stmt.debug_with(&lexer.symbol_registry)),
         Err(err) => eprintln!("{:?}", miette::Report::new(err)),
     }
 }

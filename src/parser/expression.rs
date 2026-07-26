@@ -1,5 +1,5 @@
 use crate::{
-    diagnostic::{ExpectedExpressionError, ParserError, Span, UnexpectedEofError},
+    diagnostic::{ExpectedExpressionError, ParserError, Span},
     lexer::{Keyword, Symbol, TokenKind},
     parser::{
         Parser,
@@ -40,7 +40,7 @@ impl<'a> Parser<'a> {
     ///
     /// Returns `false` if we've run out of tokens.
     fn is_expr_start(&self) -> bool {
-        let Some(current) = self.peek().map(|tok| tok.kind) else {
+        let Ok(current) = self.peek().map(|tok| tok.kind) else {
             return false;
         };
 
@@ -107,7 +107,7 @@ impl<'a> Parser<'a> {
                 continue;
             }
 
-            let Some(op) = self.peek().and_then(BinaryOp::from_token) else {
+            let Some(op) = self.peek().ok().and_then(BinaryOp::from_token) else {
                 break;
             };
 
@@ -137,10 +137,7 @@ impl<'a> Parser<'a> {
         let (kind, span) = self
             .advance()
             .map(|token| (token.kind, token.span))
-            .ok_or_else(|| UnexpectedEofError {
-                at: self.eof_span().into(),
-                src: self.source_file.clone(),
-            })?;
+            .ok_or_else(|| self.unexpected_eof_error())?;
 
         let expr = match kind {
             TokenKind::IntLiteral(symbol) => self.parse_integer_literal(symbol, span),

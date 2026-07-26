@@ -150,6 +150,16 @@ impl PartialEq for Stmt {
     }
 }
 
+impl Stmt {
+    pub fn new(kind: StmtKind, span: Span) -> Self {
+        Self { kind, span }
+    }
+
+    pub fn debug_with<'a>(&'a self, reg: &'a SymbolRegistry) -> StmtDebug<'a> {
+        StmtDebug { stmt: self, reg }
+    }
+}
+
 /// The semantic variant of a statement in the abstract syntax tree (AST).
 #[derive(Debug, Clone, PartialEq)]
 pub enum StmtKind {

@@ -201,7 +201,15 @@ pub enum ParserError {
 
     #[error(transparent)]
     #[diagnostic(transparent)]
+    ExpectedIdentifier(#[from] ExpectedIdentifierError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
     ExpectedExpression(#[from] ExpectedExpressionError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    ExpectedStatement(#[from] ExpectedStatementError),
 
     #[error(transparent)]
     #[diagnostic(transparent)]
@@ -270,6 +278,38 @@ pub struct UnclosedDelimiterError {
 
     #[label("expected `{expected}` to close this")]
     pub opened_at: SourceSpan,
+
+    #[source_code]
+    pub src: SourceFile,
+}
+
+#[derive(Error, Debug, Diagnostic)]
+#[error("expected a statement, found `{found}`")]
+#[diagnostic(
+    code(nox::parser::expected_statement),
+    help("remove the unexpected token or begin a valid statement")
+)]
+pub struct ExpectedStatementError {
+    pub found: TokenKind,
+
+    #[label("expected a statement here")]
+    pub at: SourceSpan,
+
+    #[source_code]
+    pub src: SourceFile,
+}
+
+#[derive(Error, Debug, Diagnostic)]
+#[error("expected an identifier, found `{found}`")]
+#[diagnostic(
+    code(nox::parser::expected_identifier),
+    help("provide a valid identifier")
+)]
+pub struct ExpectedIdentifierError {
+    pub found: TokenKind,
+
+    #[label("expected an identifier here")]
+    pub at: SourceSpan,
 
     #[source_code]
     pub src: SourceFile,
