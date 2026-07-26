@@ -155,7 +155,7 @@ impl fmt::Debug for ExprDebug<'_> {
             ExprKind::Unary { op, expr } => f
                 .debug_struct("Unary")
                 .field("op", op)
-                .field("right", &expr.debug_with(self.reg))
+                .field("expr", &expr.debug_with(self.reg))
                 .finish(),
             ExprKind::Call { callee, arguments } => {
                 let arguments = arguments
