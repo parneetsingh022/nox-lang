@@ -1,0 +1,13 @@
+---
+source: tests/parser/parser_errors_snapshots.rs
+expression: snapshot_parser_errors(source)
+---
+nox::parser::unclosed_delimiter
+
+  × unclosed delimiter
+   ╭─[main.nox:1:1]
+ 1 │ (10 + 20 + 32 * (75 - 28 * (8-2))
+   · ┬
+   · ╰── expected `)` to close this
+   ╰────
+  help: insert a `)` to close this group

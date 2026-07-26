@@ -1,0 +1,14 @@
+---
+source: tests/parser/parser_errors_snapshots.rs
+expression: snapshot_parser_errors(source)
+---
+nox::parser::unexpected_eof
+
+  × unexpected end of file
+   ╭─[main.nox:1:5]
+ 1 │ 100 +
+   ·     ┬
+   ·     ╰── unexpected end of file here
+   ╰────
+  help: check for unclosed delimiters, incomplete expressions, or trailing
+        operators
