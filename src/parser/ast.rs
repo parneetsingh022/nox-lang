@@ -130,6 +130,48 @@ pub enum ExprKind {
     },
 }
 
+/// Represents a statement in the abstract syntax tree (AST).
+///
+/// A `Stmt` pairs a statement variant ([`StmtKind`]), which describes
+/// the statement's semantic structure, with a source [`Span`] used for
+/// diagnostics and source mapping.
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub struct Stmt {
+    kind: StmtKind,
+    span: Span,
+}
+
+// We intentionally compare only the StmtKind here so parser tests can
+// assert AST structure without needing exact span/location matching.
+impl PartialEq for Stmt {
+    fn eq(&self, other: &Self) -> bool {
+        self.kind == other.kind
+    }
+}
+
+/// The semantic variant of a statement in the abstract syntax tree (AST).
+#[derive(Debug, Clone, PartialEq)]
+pub enum StmtKind {
+    /// Declares a new variable and initializes it with an expression.
+    ///
+    /// For example, the statement:
+    ///
+    /// ```text
+    /// let answer = 42;
+    /// ```
+    ///
+    /// stores the declared variable name in `name` and the initializer
+    /// expression in `expr`.
+    Let {
+        /// The interned symbol representing the declared variable name.
+        name: Symbol,
+
+        /// The expression used to initialize the variable.
+        expr: Expr,
+    },
+}
+
 pub struct ExprDebug<'a> {
     expr: &'a Expr,
     reg: &'a SymbolRegistry,
@@ -168,6 +210,23 @@ impl fmt::Debug for ExprDebug<'_> {
                     .field("arguments", &arguments)
                     .finish()
             }
+        }
+    }
+}
+
+pub struct StmtDebug<'a> {
+    stmt: &'a Stmt,
+    reg: &'a SymbolRegistry,
+}
+
+impl fmt::Debug for StmtDebug<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.stmt.kind {
+            StmtKind::Let { name, expr } => f
+                .debug_struct("Let")
+                .field("name", &self.reg.resolve(*name))
+                .field("expr", &expr.debug_with(self.reg))
+                .finish(),
         }
     }
 }
