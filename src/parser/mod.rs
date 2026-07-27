@@ -35,10 +35,8 @@ impl<'a> Parser<'a> {
     }
 
     /// Returns the current token without advancing the position.
-    fn peek(&self) -> Result<&Token, ParserError> {
-        self.tokens
-            .get(self.pos)
-            .ok_or_else(|| self.unexpected_eof_error())
+    fn peek(&self) -> Option<&Token> {
+        self.tokens.get(self.pos)
     }
 
     /// Returns the most recently consumed token.
@@ -60,19 +58,18 @@ impl<'a> Parser<'a> {
 
     /// Returns `true` if the current token matches the given kind.
     fn check(&self, kind: TokenKind) -> bool {
-        self.peek().is_ok_and(|token| token.kind == kind)
+        self.peek().is_some_and(|token| token.kind == kind)
     }
 
     pub fn expect(&mut self, expected: TokenKind) -> Result<&Token, ParserError> {
-        let token = self.peek()?;
-        match token {
-            _ if token.kind == expected => {
+        match self.peek() {
+            Some(token) if token.kind == expected => {
                 // Safe to unwrap because peek() just guaranteed a token exists
                 Ok(self.advance().unwrap())
             }
 
             // We found a token, but it's the wrong kind
-            _ => {
+            Some(token) => {
                 let found = token.kind;
                 // Fall back to the previous token's span if available,
                 // otherwise use the current token's span.
@@ -85,11 +82,13 @@ impl<'a> Parser<'a> {
                 }
                 .into())
             }
+
+            None => Err(self.unexpected_eof_error()),
         }
     }
 
     pub fn expect_identifier(&mut self) -> Result<(Symbol, Span), ParserError> {
-        let token = self.peek()?;
+        let token = self.peek().ok_or_else(|| self.unexpected_eof_error())?;
 
         match token.kind {
             TokenKind::Identifier(symbol) => {
@@ -114,7 +113,7 @@ impl<'a> Parser<'a> {
         opened_at: Span,
     ) -> Result<&Token, ParserError> {
         match self.peek() {
-            Ok(token) if token.kind == expected => Ok(self.advance().unwrap()),
+            Some(token) if token.kind == expected => Ok(self.advance().unwrap()),
             _ => Err(crate::diagnostic::UnclosedDelimiterError {
                 expected,
                 opened_at: opened_at.into(),

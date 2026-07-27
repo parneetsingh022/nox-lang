@@ -40,7 +40,7 @@ impl<'a> Parser<'a> {
     ///
     /// Returns `false` if we've run out of tokens.
     fn is_expr_start(&self) -> bool {
-        let Ok(current) = self.peek().map(|tok| tok.kind) else {
+        let Some(current) = self.peek().map(|tok| tok.kind) else {
             return false;
         };
 
@@ -107,7 +107,7 @@ impl<'a> Parser<'a> {
                 continue;
             }
 
-            let Some(op) = self.peek().ok().and_then(BinaryOp::from_token) else {
+            let Some(op) = self.peek().and_then(BinaryOp::from_token) else {
                 break;
             };
 
