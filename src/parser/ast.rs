@@ -154,6 +154,10 @@ impl Stmt {
         Self { kind, span }
     }
 
+    pub fn kind(&self) -> &StmtKind {
+        &self.kind
+    }
+
     pub fn span(&self) -> Span {
         self.span
     }
