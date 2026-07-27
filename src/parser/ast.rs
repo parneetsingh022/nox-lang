@@ -136,7 +136,6 @@ pub enum ExprKind {
 /// the statement's semantic structure, with a source [`Span`] used for
 /// diagnostics and source mapping.
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct Stmt {
     kind: StmtKind,
     span: Span,
@@ -153,6 +152,10 @@ impl PartialEq for Stmt {
 impl Stmt {
     pub fn new(kind: StmtKind, span: Span) -> Self {
         Self { kind, span }
+    }
+
+    pub fn span(&self) -> Span {
+        self.span
     }
 
     pub fn debug_with<'a>(&'a self, reg: &'a SymbolRegistry) -> StmtDebug<'a> {
