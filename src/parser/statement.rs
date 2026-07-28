@@ -1,36 +1,30 @@
 use crate::{
     diagnostic::{ParserError, Span},
-    lexer::{Keyword, TokenKind},
+    lexer::{Keyword, Token, TokenKind},
     parser::{
         Parser,
         ast::{SpannedIdentifier, Stmt, StmtKind},
     },
 };
 
-/// Returns `true` if `keyword` can begin a keyword-based statement.
-///
-/// This function only classifies statements introduced by keywords. Other
-/// statement forms may begin with non-keyword tokens.
-fn is_stmt_keyword(keyword: Keyword) -> bool {
-    matches!(keyword, Keyword::Let)
-}
-
 impl<'a> Parser<'a> {
     pub fn parse_stmt(&mut self) -> Result<Stmt, ParserError> {
-        let token = self.peek().ok_or_else(|| self.unexpected_eof_error())?;
+        let token = self
+            .peek()
+            .cloned()
+            .ok_or_else(|| self.unexpected_eof_error())?;
 
         match token.kind {
-            TokenKind::Keyword(keyword) if is_stmt_keyword(keyword) => {
-                self.parse_keyword_stmt(keyword)
-            }
-            _ => Err(self.expected_statement_error(token)),
+            TokenKind::Keyword(_) => self.parse_keyword_stmt(&token),
+            _ => Err(self.expected_statement_error(&token)),
         }
     }
 
-    fn parse_keyword_stmt(&mut self, keyword: Keyword) -> Result<Stmt, ParserError> {
-        match keyword {
-            Keyword::Let => self.parse_let_stmt(),
-            _ => unreachable!("non-statement keyword passed to parse_keyword_stmt: {keyword:?}"),
+    fn parse_keyword_stmt(&mut self, token: &Token) -> Result<Stmt, ParserError> {
+        match token.kind {
+            TokenKind::Keyword(Keyword::Let) => self.parse_let_stmt(),
+            TokenKind::Keyword(_) => Err(self.expected_statement_error(token)),
+            _ => unreachable!("non-keyword token passed to parse_keyword_stmt"),
         }
     }
 
