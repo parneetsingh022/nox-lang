@@ -171,11 +171,13 @@ pub enum ExprKind {
     },
 }
 
-/// Represents a statement in the abstract syntax tree (AST).
+/// A parsed statement in the abstract syntax tree.
 ///
-/// A `Stmt` pairs a statement variant ([`StmtKind`]), which describes
-/// the statement's semantic structure, with a source [`Span`] used for
-/// diagnostics and source mapping.
+/// It stores the statement itself in [`StmtKind`] and the part of the source
+/// code that produced it in [`Span`].
+///
+/// The span is used when reporting errors or mapping the statement back to
+/// the original source.
 #[derive(Debug, Clone)]
 pub struct Stmt {
     kind: StmtKind,
