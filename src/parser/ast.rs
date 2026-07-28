@@ -67,6 +67,47 @@ impl BinaryOp {
     }
 }
 
+/// Represents an identifier stored in the abstract syntax tree.
+///
+/// An identifier contains both:
+///
+/// - the interned [`Symbol`] used to efficiently identify and compare its name;
+/// - the source [`Span`] covering the identifier's occurrence in the source code.
+///
+/// Keeping the span alongside the symbol allows later compiler stages to produce
+/// diagnostics that point directly to the identifier. This is particularly useful
+/// for identifiers that are not wrapped in another spanned AST node, such as the
+/// declared name in a `let` statement.
+///
+/// Identifier expressions may continue storing only a [`Symbol`] inside
+/// `ExprKind::Identifier`, because the surrounding `Expr` already carries the
+/// expression's span.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SpannedIdentifier {
+    /// The interned symbol representing the identifier's textual name.
+    symbol: Symbol,
+
+    /// The location of this identifier occurrence in the source file.
+    span: Span,
+}
+
+impl SpannedIdentifier {
+    /// Creates an identifier from an interned symbol and its source span.
+    pub fn new(symbol: Symbol, span: Span) -> Self {
+        Self { symbol, span }
+    }
+
+    /// Returns the interned symbol representing the identifier's name.
+    pub fn symbol(self) -> Symbol {
+        self.symbol
+    }
+
+    /// Returns the source span covering this identifier.
+    pub fn span(self) -> Span {
+        self.span
+    }
+}
+
 /// Represents an expression in the abstract syntax tree (AST).
 ///
 /// An `Expr` pairs an expression variant ([`ExprKind`]), which defines
@@ -182,7 +223,7 @@ pub enum StmtKind {
     /// expression in `expr`.
     Let {
         /// The interned symbol representing the declared variable name.
-        name: Symbol,
+        name: SpannedIdentifier,
 
         /// The expression used to initialize the variable.
         expr: Expr,
@@ -241,7 +282,7 @@ impl fmt::Debug for StmtDebug<'_> {
         match &self.stmt.kind {
             StmtKind::Let { name, expr } => f
                 .debug_struct("Let")
-                .field("name", &self.reg.resolve(*name))
+                .field("name", &self.reg.resolve(name.symbol()))
                 .field("expr", &expr.debug_with(self.reg))
                 .finish(),
         }

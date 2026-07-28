@@ -3,7 +3,7 @@ use crate::{
     lexer::{Keyword, TokenKind},
     parser::{
         Parser,
-        ast::{Stmt, StmtKind},
+        ast::{SpannedIdentifier, Stmt, StmtKind},
     },
 };
 
@@ -37,8 +37,8 @@ impl<'a> Parser<'a> {
     fn parse_let_stmt(&mut self) -> Result<Stmt, ParserError> {
         // Consume the keyword
         let start = self.expect(TokenKind::Keyword(Keyword::Let))?.span;
-        let (symbol, _) = self.expect_identifier()?;
-
+        let (ident_symbol, ident_span) = self.expect_identifier()?;
+        let identifier = SpannedIdentifier::new(ident_symbol, ident_span);
         self.expect(TokenKind::Eq)?;
 
         let expr = self.parse_expr()?;
@@ -46,7 +46,13 @@ impl<'a> Parser<'a> {
 
         let span = Span::from_bounds(start, semi.span);
 
-        Ok(Stmt::new(StmtKind::Let { name: symbol, expr }, span))
+        Ok(Stmt::new(
+            StmtKind::Let {
+                name: identifier,
+                expr,
+            },
+            span,
+        ))
     }
 }
 
@@ -105,7 +111,7 @@ mod tests {
         #[allow(unreachable_patterns)]
         match stmt.kind() {
             StmtKind::Let { name, expr } => {
-                assert_eq!(variable_name, symbol_registry.resolve(*name));
+                assert_eq!(variable_name, symbol_registry.resolve(name.symbol()));
                 assert_eq!(expr, &expected);
             }
             _ => panic!("Expected let statement found: {:?}", stmt.kind()),
@@ -123,7 +129,7 @@ mod tests {
         #[allow(unreachable_patterns)]
         match stmt.kind() {
             StmtKind::Let { name, expr } => {
-                assert_eq!(variable_name, symbol_registry.resolve(*name));
+                assert_eq!(variable_name, symbol_registry.resolve(name.symbol()));
 
                 let ExprKind::Identifier(symbol) = expr.kind() else {
                     panic!("expected identifier, found: {:?}", expr.kind());
@@ -156,7 +162,7 @@ mod tests {
             panic!("expected let statement, found: {:?}", stmt.kind());
         };
 
-        assert_eq!("result", symbol_registry.resolve(*name));
+        assert_eq!("result", symbol_registry.resolve(name.symbol()));
         assert_eq!(&expected, expr);
     }
 
@@ -210,5 +216,43 @@ mod tests {
         let (stmt, _) = parse_statement(source);
 
         assert_span(stmt.span(), Span::new(3, source.len(), 2, 3));
+    }
+
+    #[test]
+    fn let_declaration_identifier_has_correct_span() {
+        let source = "let result = 42;";
+        let (stmt, _) = parse_statement(source);
+
+        let StmtKind::Let { name, .. } = stmt.kind();
+
+        assert_span(name.span(), Span::new(4, 10, 1, 5));
+    }
+
+    #[test]
+    fn let_declaration_identifier_tracks_line_and_column() {
+        let source = "\n  let long_name = 42;";
+        let (stmt, _) = parse_statement(source);
+
+        let StmtKind::Let { name, .. } = stmt.kind();
+
+        assert_span(name.span(), Span::new(7, 16, 2, 7));
+    }
+
+    #[test]
+    fn declaration_and_expression_identifiers_have_independent_spans() {
+        let source = "let destination = source;";
+        let (stmt, symbol_registry) = parse_statement(source);
+
+        let StmtKind::Let { name, expr } = stmt.kind();
+
+        assert_eq!("destination", symbol_registry.resolve(name.symbol()));
+        assert_span(name.span(), Span::new(4, 15, 1, 5));
+
+        let ExprKind::Identifier(symbol) = expr.kind() else {
+            panic!("expected identifier expression, found: {:?}", expr.kind());
+        };
+
+        assert_eq!("source", symbol_registry.resolve(*symbol));
+        assert_span(expr.span(), Span::new(18, 24, 1, 19));
     }
 }
