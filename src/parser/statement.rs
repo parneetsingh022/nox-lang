@@ -11,7 +11,7 @@ use crate::{
 ///
 /// This function only classifies statements introduced by keywords. Other
 /// statement forms may begin with non-keyword tokens.
-fn is_statement_keyword(keyword: Keyword) -> bool {
+fn is_stmt_keyword(keyword: Keyword) -> bool {
     matches!(keyword, Keyword::Let)
 }
 
@@ -20,7 +20,7 @@ impl<'a> Parser<'a> {
         let token = self.peek().ok_or_else(|| self.unexpected_eof_error())?;
 
         match token.kind {
-            TokenKind::Keyword(keyword) if is_statement_keyword(keyword) => {
+            TokenKind::Keyword(keyword) if is_stmt_keyword(keyword) => {
                 self.parse_keyword_stmt(keyword)
             }
             _ => Err(self.expected_statement_error(token)),
