@@ -9,7 +9,8 @@ use crate::{
         ExpectedIdentifierError, ExpectedStatementError, ExpectedTokenError, ParserError,
         SourceFile, Span, UnexpectedEofError,
     },
-    lexer::{Symbol, SymbolRegistry, Token, TokenKind},
+    lexer::{SymbolRegistry, Token, TokenKind},
+    parser::ast::SpannedIdentifier,
 };
 
 /// Parses a stream of lexical tokens into an abstract syntax tree (AST).
@@ -87,14 +88,14 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn expect_identifier(&mut self) -> Result<(Symbol, Span), ParserError> {
+    pub fn expect_identifier(&mut self) -> Result<SpannedIdentifier, ParserError> {
         let token = self.peek().ok_or_else(|| self.unexpected_eof_error())?;
 
         match token.kind {
             TokenKind::Identifier(symbol) => {
                 let span = token.span;
                 self.advance().unwrap();
-                Ok((symbol, span))
+                Ok(SpannedIdentifier::new(symbol, span))
             }
             _ => Err(ExpectedIdentifierError {
                 found: token.kind,

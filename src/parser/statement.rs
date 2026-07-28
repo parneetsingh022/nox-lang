@@ -3,7 +3,7 @@ use crate::{
     lexer::{Keyword, Token, TokenKind},
     parser::{
         Parser,
-        ast::{SpannedIdentifier, Stmt, StmtKind},
+        ast::{Stmt, StmtKind},
     },
 };
 
@@ -31,8 +31,7 @@ impl<'a> Parser<'a> {
     fn parse_let_stmt(&mut self) -> Result<Stmt, ParserError> {
         // Consume the keyword
         let start = self.expect(TokenKind::Keyword(Keyword::Let))?.span;
-        let (ident_symbol, ident_span) = self.expect_identifier()?;
-        let identifier = SpannedIdentifier::new(ident_symbol, ident_span);
+        let identifier = self.expect_identifier()?;
         self.expect(TokenKind::Eq)?;
 
         let expr = self.parse_expr()?;
