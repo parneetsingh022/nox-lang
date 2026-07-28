@@ -17,7 +17,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse_keyword_stmt(&mut self, keyword: Keyword) -> Result<Stmt, ParserError> {
+    fn parse_keyword_stmt(&mut self, keyword: Keyword) -> Result<Stmt, ParserError> {
         match keyword {
             Keyword::Let => self.parse_let_stmt(),
             _ => {
@@ -27,7 +27,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse_let_stmt(&mut self) -> Result<Stmt, ParserError> {
+    fn parse_let_stmt(&mut self) -> Result<Stmt, ParserError> {
         // Consume the keyword
         let start = self.expect(TokenKind::Keyword(Keyword::Let))?.span;
         let (symbol, _) = self.expect_identifier()?;
