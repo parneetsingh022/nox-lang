@@ -59,7 +59,7 @@ mod tests {
         lexer::{SymbolRegistry, make_lexer},
         parser::{
             ast::{BinaryOp, Expr, ExprKind, SpannedIdentifier, UnaryOp},
-            expression::{binary, boolean, float, identifier, int, unary},
+            expression::tests::{binary, boolean, float, identifier, int, unary},
         },
     };
 
