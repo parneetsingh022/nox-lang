@@ -2,10 +2,15 @@
 
 pub mod ast;
 pub mod expression;
+pub mod statement;
 
 use crate::{
-    diagnostic::{ExpectedTokenError, ParserError, SourceFile, Span, UnexpectedEofError},
+    diagnostic::{
+        ExpectedIdentifierError, ExpectedStatementError, ExpectedTokenError, ParserError,
+        SourceFile, Span, UnexpectedEofError,
+    },
     lexer::{SymbolRegistry, Token, TokenKind},
+    parser::ast::SpannedIdentifier,
 };
 
 /// Parses a stream of lexical tokens into an abstract syntax tree (AST).
@@ -44,6 +49,7 @@ impl<'a> Parser<'a> {
         self.previous()
             .map_or(Span::new(0, 0, 1, 1), |token| token.span)
     }
+
     /// Consumes the current token and advances the parser position.
     fn advance(&mut self) -> Option<&Token> {
         let token = self.tokens.get(self.pos)?;
@@ -78,8 +84,22 @@ impl<'a> Parser<'a> {
                 .into())
             }
 
-            None => Err(UnexpectedEofError {
-                at: self.eof_span().into(),
+            None => Err(self.unexpected_eof_error()),
+        }
+    }
+
+    pub fn expect_identifier(&mut self) -> Result<SpannedIdentifier, ParserError> {
+        let token = self.peek().ok_or_else(|| self.unexpected_eof_error())?;
+
+        match token.kind {
+            TokenKind::Identifier(symbol) => {
+                let span = token.span;
+                self.advance().unwrap();
+                Ok(SpannedIdentifier::new(symbol, span))
+            }
+            _ => Err(ExpectedIdentifierError {
+                found: token.kind,
+                at: token.span.into(),
                 src: self.source_file.clone(),
             }
             .into()),
@@ -102,5 +122,22 @@ impl<'a> Parser<'a> {
             }
             .into()),
         }
+    }
+
+    fn unexpected_eof_error(&self) -> ParserError {
+        UnexpectedEofError {
+            at: self.eof_span().into(),
+            src: self.source_file.clone(),
+        }
+        .into()
+    }
+
+    fn expected_statement_error(&self, token: &Token) -> ParserError {
+        ExpectedStatementError {
+            found: token.kind,
+            at: token.span.into(),
+            src: self.source_file.clone(),
+        }
+        .into()
     }
 }

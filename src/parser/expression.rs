@@ -1,5 +1,5 @@
 use crate::{
-    diagnostic::{ExpectedExpressionError, ParserError, Span, UnexpectedEofError},
+    diagnostic::{ExpectedExpressionError, ParserError, Span},
     lexer::{Keyword, Symbol, TokenKind},
     parser::{
         Parser,
@@ -137,10 +137,7 @@ impl<'a> Parser<'a> {
         let (kind, span) = self
             .advance()
             .map(|token| (token.kind, token.span))
-            .ok_or_else(|| UnexpectedEofError {
-                at: self.eof_span().into(),
-                src: self.source_file.clone(),
-            })?;
+            .ok_or_else(|| self.unexpected_eof_error())?;
 
         let expr = match kind {
             TokenKind::IntLiteral(symbol) => self.parse_integer_literal(symbol, span),
@@ -303,34 +300,29 @@ impl<'a> Parser<'a> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
+
     use super::*;
     use crate::lexer::make_lexer;
     use rstest::rstest;
 
-    fn parse_expression(source: &str) -> Expr {
-        let (mut lexer, source_file) = make_lexer(source);
-
-        let tokens = lexer.by_ref().map(|tok| tok.unwrap()).collect::<Vec<_>>();
-
-        let mut parser = Parser::new(&tokens, &lexer.symbol_registry, source_file);
-
-        parser.parse_expr().unwrap()
-    }
-
-    fn int(value: i64) -> Expr {
+    pub(crate) fn int(value: i64) -> Expr {
         Expr::new(ExprKind::IntLiteral(value), Span::default())
     }
 
-    fn float(value: f64) -> Expr {
+    pub(crate) fn float(value: f64) -> Expr {
         Expr::new(ExprKind::FloatLiteral(value), Span::default())
     }
 
-    fn boolean(value: bool) -> Expr {
+    pub(crate) fn boolean(value: bool) -> Expr {
         Expr::new(ExprKind::Bool(value), Span::default())
     }
 
-    fn binary(left: Expr, op: BinaryOp, right: Expr) -> Expr {
+    pub(crate) fn identifier(symbol: Symbol) -> Expr {
+        Expr::new(ExprKind::Identifier(symbol), Span::default())
+    }
+
+    pub(crate) fn binary(left: Expr, op: BinaryOp, right: Expr) -> Expr {
         Expr::new(
             ExprKind::Binary {
                 left: Box::new(left),
@@ -341,7 +333,7 @@ mod tests {
         )
     }
 
-    fn unary(op: UnaryOp, expr: Expr) -> Expr {
+    pub(crate) fn unary(op: UnaryOp, expr: Expr) -> Expr {
         Expr::new(
             ExprKind::Unary {
                 op,
@@ -349,6 +341,16 @@ mod tests {
             },
             Span::default(),
         )
+    }
+
+    fn parse_expression(source: &str) -> Expr {
+        let (mut lexer, source_file) = make_lexer(source);
+
+        let tokens = lexer.by_ref().map(|tok| tok.unwrap()).collect::<Vec<_>>();
+
+        let mut parser = Parser::new(&tokens, &lexer.symbol_registry, source_file);
+
+        parser.parse_expr().unwrap()
     }
 
     fn parse_expression_error(source: &str) -> ParserError {

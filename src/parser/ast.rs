@@ -67,6 +67,47 @@ impl BinaryOp {
     }
 }
 
+/// Represents an identifier stored in the abstract syntax tree.
+///
+/// An identifier contains both:
+///
+/// - the interned [`Symbol`] used to efficiently identify and compare its name;
+/// - the source [`Span`] covering the identifier's occurrence in the source code.
+///
+/// Keeping the span alongside the symbol allows later compiler stages to produce
+/// diagnostics that point directly to the identifier. This is particularly useful
+/// for identifiers that are not wrapped in another spanned AST node, such as the
+/// declared name in a `let` statement.
+///
+/// Identifier expressions may continue storing only a [`Symbol`] inside
+/// `ExprKind::Identifier`, because the surrounding `Expr` already carries the
+/// expression's span.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SpannedIdentifier {
+    /// The interned symbol representing the identifier's textual name.
+    symbol: Symbol,
+
+    /// The location of this identifier occurrence in the source file.
+    span: Span,
+}
+
+impl SpannedIdentifier {
+    /// Creates an identifier from an interned symbol and its source span.
+    pub fn new(symbol: Symbol, span: Span) -> Self {
+        Self { symbol, span }
+    }
+
+    /// Returns the interned symbol representing the identifier's name.
+    pub fn symbol(self) -> Symbol {
+        self.symbol
+    }
+
+    /// Returns the source span covering this identifier.
+    pub fn span(self) -> Span {
+        self.span
+    }
+}
+
 /// Represents an expression in the abstract syntax tree (AST).
 ///
 /// An `Expr` pairs an expression variant ([`ExprKind`]), which defines
@@ -130,6 +171,67 @@ pub enum ExprKind {
     },
 }
 
+/// A parsed statement in the abstract syntax tree.
+///
+/// It stores the statement itself in [`StmtKind`] and the part of the source
+/// code that produced it in [`Span`].
+///
+/// The span is used when reporting errors or mapping the statement back to
+/// the original source.
+#[derive(Debug, Clone)]
+pub struct Stmt {
+    kind: StmtKind,
+    span: Span,
+}
+
+// We intentionally compare only the StmtKind here so parser tests can
+// assert AST structure without needing exact span/location matching.
+impl PartialEq for Stmt {
+    fn eq(&self, other: &Self) -> bool {
+        self.kind == other.kind
+    }
+}
+
+impl Stmt {
+    pub fn new(kind: StmtKind, span: Span) -> Self {
+        Self { kind, span }
+    }
+
+    pub fn kind(&self) -> &StmtKind {
+        &self.kind
+    }
+
+    pub fn span(&self) -> Span {
+        self.span
+    }
+
+    pub fn debug_with<'a>(&'a self, reg: &'a SymbolRegistry) -> StmtDebug<'a> {
+        StmtDebug { stmt: self, reg }
+    }
+}
+
+/// The semantic variant of a statement in the abstract syntax tree (AST).
+#[derive(Debug, Clone, PartialEq)]
+pub enum StmtKind {
+    /// Declares a new variable and initializes it with an expression.
+    ///
+    /// For example, the statement:
+    ///
+    /// ```text
+    /// let answer = 42;
+    /// ```
+    ///
+    /// stores the declared variable name in `name` and the initializer
+    /// expression in `expr`.
+    Let {
+        /// The interned symbol representing the declared variable name.
+        name: SpannedIdentifier,
+
+        /// The expression used to initialize the variable.
+        expr: Expr,
+    },
+}
+
 pub struct ExprDebug<'a> {
     expr: &'a Expr,
     reg: &'a SymbolRegistry,
@@ -155,7 +257,7 @@ impl fmt::Debug for ExprDebug<'_> {
             ExprKind::Unary { op, expr } => f
                 .debug_struct("Unary")
                 .field("op", op)
-                .field("right", &expr.debug_with(self.reg))
+                .field("expr", &expr.debug_with(self.reg))
                 .finish(),
             ExprKind::Call { callee, arguments } => {
                 let arguments = arguments
@@ -168,6 +270,23 @@ impl fmt::Debug for ExprDebug<'_> {
                     .field("arguments", &arguments)
                     .finish()
             }
+        }
+    }
+}
+
+pub struct StmtDebug<'a> {
+    stmt: &'a Stmt,
+    reg: &'a SymbolRegistry,
+}
+
+impl fmt::Debug for StmtDebug<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.stmt.kind {
+            StmtKind::Let { name, expr } => f
+                .debug_struct("Let")
+                .field("name", &self.reg.resolve(name.symbol()))
+                .field("expr", &expr.debug_with(self.reg))
+                .finish(),
         }
     }
 }
