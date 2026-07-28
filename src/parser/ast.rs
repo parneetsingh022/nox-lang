@@ -224,7 +224,7 @@ pub enum StmtKind {
     /// stores the declared variable name in `name` and the initializer
     /// expression in `expr`.
     Let {
-        /// The interned symbol representing the declared variable name.
+        /// The interned symbol with span representing the declared variable name.
         name: SpannedIdentifier,
 
         /// The expression used to initialize the variable.
