@@ -7,12 +7,22 @@ use crate::{
     },
 };
 
+/// Returns `true` if `keyword` can begin a keyword-based statement.
+///
+/// This function only classifies statements introduced by keywords. Other
+/// statement forms may begin with non-keyword tokens.
+fn is_statement_keyword(keyword: Keyword) -> bool {
+    matches!(keyword, Keyword::Let)
+}
+
 impl<'a> Parser<'a> {
     pub fn parse_stmt(&mut self) -> Result<Stmt, ParserError> {
         let token = self.peek().ok_or_else(|| self.unexpected_eof_error())?;
 
         match token.kind {
-            TokenKind::Keyword(keyword) => self.parse_keyword_stmt(keyword),
+            TokenKind::Keyword(keyword) if is_statement_keyword(keyword) => {
+                self.parse_keyword_stmt(keyword)
+            }
             _ => Err(self.expected_statement_error(token)),
         }
     }
@@ -20,10 +30,7 @@ impl<'a> Parser<'a> {
     fn parse_keyword_stmt(&mut self, keyword: Keyword) -> Result<Stmt, ParserError> {
         match keyword {
             Keyword::Let => self.parse_let_stmt(),
-            _ => {
-                let token = self.peek().ok_or_else(|| self.unexpected_eof_error())?;
-                Err(self.expected_statement_error(token))
-            }
+            _ => unreachable!("non-statement keyword passed to parse_keyword_stmt: {keyword:?}"),
         }
     }
 
