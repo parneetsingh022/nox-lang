@@ -99,6 +99,23 @@ impl Span {
     }
 }
 
+#[cfg(test)]
+pub(crate) fn assert_span(actual: Span, expected: Span) {
+    assert_eq!(
+        actual,
+        expected,
+        "unexpected span: expected bytes {}..{} at {}:{}, found bytes {}..{} at {}:{}",
+        expected.start,
+        expected.end,
+        expected.line,
+        expected.column,
+        actual.start,
+        actual.end,
+        actual.line,
+        actual.column,
+    );
+}
+
 impl From<Span> for SourceSpan {
     fn from(span: Span) -> Self {
         // Calculate the length from your end and start offsets

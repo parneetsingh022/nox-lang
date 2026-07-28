@@ -300,6 +300,49 @@ impl<'a> Parser<'a> {
 }
 
 #[cfg(test)]
+pub(crate) fn int(value: i64) -> Expr {
+    Expr::new(ExprKind::IntLiteral(value), Span::default())
+}
+
+#[cfg(test)]
+pub(crate) fn float(value: f64) -> Expr {
+    Expr::new(ExprKind::FloatLiteral(value), Span::default())
+}
+
+#[cfg(test)]
+pub(crate) fn boolean(value: bool) -> Expr {
+    Expr::new(ExprKind::Bool(value), Span::default())
+}
+
+#[cfg(test)]
+pub(crate) fn identifier(symbol: Symbol) -> Expr {
+    Expr::new(ExprKind::Identifier(symbol), Span::default())
+}
+
+#[cfg(test)]
+pub(crate) fn binary(left: Expr, op: BinaryOp, right: Expr) -> Expr {
+    Expr::new(
+        ExprKind::Binary {
+            left: Box::new(left),
+            op,
+            right: Box::new(right),
+        },
+        Span::default(),
+    )
+}
+
+#[cfg(test)]
+pub(crate) fn unary(op: UnaryOp, expr: Expr) -> Expr {
+    Expr::new(
+        ExprKind::Unary {
+            op,
+            expr: Box::new(expr),
+        },
+        Span::default(),
+    )
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::lexer::make_lexer;
@@ -313,39 +356,6 @@ mod tests {
         let mut parser = Parser::new(&tokens, &lexer.symbol_registry, source_file);
 
         parser.parse_expr().unwrap()
-    }
-
-    fn int(value: i64) -> Expr {
-        Expr::new(ExprKind::IntLiteral(value), Span::default())
-    }
-
-    fn float(value: f64) -> Expr {
-        Expr::new(ExprKind::FloatLiteral(value), Span::default())
-    }
-
-    fn boolean(value: bool) -> Expr {
-        Expr::new(ExprKind::Bool(value), Span::default())
-    }
-
-    fn binary(left: Expr, op: BinaryOp, right: Expr) -> Expr {
-        Expr::new(
-            ExprKind::Binary {
-                left: Box::new(left),
-                op,
-                right: Box::new(right),
-            },
-            Span::default(),
-        )
-    }
-
-    fn unary(op: UnaryOp, expr: Expr) -> Expr {
-        Expr::new(
-            ExprKind::Unary {
-                op,
-                expr: Box::new(expr),
-            },
-            Span::default(),
-        )
     }
 
     fn parse_expression_error(source: &str) -> ParserError {
