@@ -58,10 +58,20 @@ mod tests {
         diagnostic::assert_span,
         lexer::{SymbolRegistry, make_lexer},
         parser::{
-            ast::{BinaryOp, Expr, ExprKind, UnaryOp},
+            ast::{BinaryOp, Expr, ExprKind, SpannedIdentifier, UnaryOp},
             expression::{binary, boolean, float, identifier, int, unary},
         },
     };
+
+    /// This assumes a statement to have [`StatementKind::Let`] otherwise
+    /// it panics
+    fn as_let(stmt: &Stmt) -> (&SpannedIdentifier, &Expr) {
+        #[allow(irrefutable_let_patterns)]
+        let StmtKind::Let { name, expr } = stmt.kind() else {
+            panic!("Expected let found : {:?}", stmt);
+        };
+        (name, expr)
+    }
 
     fn try_parse_statement(source: &str) -> Result<(Stmt, SymbolRegistry), ParserError> {
         let (mut lexer, source_file) = make_lexer(source);
@@ -101,14 +111,10 @@ mod tests {
         let source = format!("let {variable_name} = {value};");
         let (stmt, symbol_registry) = parse_statement(source.as_str());
 
-        #[allow(unreachable_patterns)]
-        match stmt.kind() {
-            StmtKind::Let { name, expr } => {
-                assert_eq!(variable_name, symbol_registry.resolve(name.symbol()));
-                assert_eq!(expr, &expected);
-            }
-            _ => panic!("Expected let statement found: {:?}", stmt.kind()),
-        }
+        let (name, expr) = as_let(&stmt);
+
+        assert_eq!(variable_name, symbol_registry.resolve(name.symbol()));
+        assert_eq!(expr, &expected);
     }
 
     #[rstest]
@@ -118,20 +124,15 @@ mod tests {
     fn parse_let_statement_with_identifier_value(#[case] variable_name: &str, #[case] value: &str) {
         let source = format!("let {variable_name} = {value};");
         let (stmt, symbol_registry) = parse_statement(&source);
+        let (name, expr) = as_let(&stmt);
 
-        #[allow(unreachable_patterns)]
-        match stmt.kind() {
-            StmtKind::Let { name, expr } => {
-                assert_eq!(variable_name, symbol_registry.resolve(name.symbol()));
+        assert_eq!(variable_name, symbol_registry.resolve(name.symbol()));
 
-                let ExprKind::Identifier(symbol) = expr.kind() else {
-                    panic!("expected identifier, found: {:?}", expr.kind());
-                };
+        let ExprKind::Identifier(symbol) = expr.kind() else {
+            panic!("expected identifier, found: {:?}", expr.kind());
+        };
 
-                assert_eq!(value, symbol_registry.resolve(*symbol));
-            }
-            unexpected => panic!("expected let statement, found: {unexpected:?}"),
-        }
+        assert_eq!(value, symbol_registry.resolve(*symbol));
     }
 
     #[test]
@@ -150,11 +151,7 @@ mod tests {
             unary(UnaryOp::Not, boolean(false)),
         );
 
-        #[allow(irrefutable_let_patterns)]
-        let StmtKind::Let { name, expr } = stmt.kind() else {
-            panic!("expected let statement, found: {:?}", stmt.kind());
-        };
-
+        let (name, expr) = as_let(&stmt);
         assert_eq!("result", symbol_registry.resolve(name.symbol()));
         assert_eq!(&expected, expr);
     }
@@ -216,7 +213,7 @@ mod tests {
         let source = "let result = 42;";
         let (stmt, _) = parse_statement(source);
 
-        let StmtKind::Let { name, .. } = stmt.kind();
+        let (name, _) = as_let(&stmt);
 
         assert_span(name.span(), Span::new(4, 10, 1, 5));
     }
@@ -226,7 +223,7 @@ mod tests {
         let source = "\n  let long_name = 42;";
         let (stmt, _) = parse_statement(source);
 
-        let StmtKind::Let { name, .. } = stmt.kind();
+        let (name, _) = as_let(&stmt);
 
         assert_span(name.span(), Span::new(7, 16, 2, 7));
     }
@@ -236,7 +233,7 @@ mod tests {
         let source = "let destination = source;";
         let (stmt, symbol_registry) = parse_statement(source);
 
-        let StmtKind::Let { name, expr } = stmt.kind();
+        let (name, expr) = as_let(&stmt);
 
         assert_eq!("destination", symbol_registry.resolve(name.symbol()));
         assert_span(name.span(), Span::new(4, 15, 1, 5));
