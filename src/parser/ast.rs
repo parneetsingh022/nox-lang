@@ -1,7 +1,24 @@
 //! Abstract Syntax Tree (AST) definitions for the Nox programming language.
 //!
-//! This module defines the core data structures that represent parsed source code.
-//! The AST is structured hierarchically around two main grammar categories:
+//! This module defines the core data structures that represent parsed source code
+//! produced by the parser.
+//!
+//! # Spans & Diagnostics
+//!
+//! AST nodes generally pair their semantic definitions with a [`Span`]. This
+//! preserves original source code locations for downstream compiler phases,
+//! enabling precise diagnostic and error reporting.
+//!
+//! Note that [`PartialEq`] implementations across AST nodes intentionally compare
+//! **only** semantic structure (ignoring spans) to simplify structural testing
+//! and snapshot assertions.
+//!
+//! # Pretty Printing & Debugging
+//!
+//! Standard [`fmt::Debug`] formatting prints raw symbol IDs for interned identifiers.
+//! For human-readable output during testing or debugging, AST nodes provide custom
+//! `debug_with` helper methods that resolve interned [`Symbol`] IDs against a
+//! [`SymbolRegistry`].
 
 use std::fmt;
 
