@@ -1,9 +1,35 @@
+//! Abstract Syntax Tree (AST) definitions for the Nox programming language.
+//!
+//! This module defines the core data structures that represent parsed source code
+//! produced by the parser.
+//!
+//! # Spans & Diagnostics
+//!
+//! AST nodes generally pair their semantic definitions with a [`Span`]. This
+//! preserves original source code locations for downstream compiler phases,
+//! enabling precise diagnostic and error reporting.
+//!
+//! Note that [`PartialEq`] implementations across AST nodes intentionally compare
+//! **only** semantic structure (ignoring spans) to simplify structural testing
+//! and snapshot assertions.
+//!
+//! # Pretty Printing & Debugging
+//!
+//! Standard [`fmt::Debug`] formatting prints raw symbol IDs for interned identifiers.
+//! For human-readable output during testing or debugging, AST nodes provide custom
+//! `debug_with` helper methods that resolve interned [`Symbol`] IDs against a
+//! [`SymbolRegistry`].
+
 use std::fmt;
 
 use crate::{
     diagnostic::Span,
     lexer::{Symbol, SymbolRegistry, Token, TokenKind},
 };
+
+// =============================================================================
+// Operators
+// =============================================================================
 
 /// Represents unary operations in expressions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -67,6 +93,10 @@ impl BinaryOp {
     }
 }
 
+// =============================================================================
+// Identifiers
+// =============================================================================
+
 /// Represents an identifier stored in the abstract syntax tree.
 ///
 /// An identifier contains both:
@@ -108,6 +138,32 @@ impl SpannedIdentifier {
     }
 }
 
+// =============================================================================
+// Expressions
+// =============================================================================
+
+/// The semantic variant of an expression in the abstract syntax tree (AST).
+#[derive(Debug, Clone, PartialEq)]
+pub enum ExprKind {
+    IntLiteral(i64),
+    FloatLiteral(f64),
+    Identifier(Symbol),
+    Bool(bool),
+    Binary {
+        left: Box<Expr>,
+        op: BinaryOp,
+        right: Box<Expr>,
+    },
+    Unary {
+        op: UnaryOp,
+        expr: Box<Expr>,
+    },
+    Call {
+        callee: Box<Expr>,
+        arguments: Vec<Expr>,
+    },
+}
+
 /// Represents an expression in the abstract syntax tree (AST).
 ///
 /// An `Expr` pairs an expression variant ([`ExprKind`]), which defines
@@ -117,14 +173,6 @@ impl SpannedIdentifier {
 pub struct Expr {
     kind: ExprKind,
     span: Span,
-}
-
-// We intentionally compare only the ExprKind here so parser tests can
-// assert AST structure without needing exact span/location matching.
-impl PartialEq for Expr {
-    fn eq(&self, other: &Self) -> bool {
-        self.kind == other.kind
-    }
 }
 
 impl Expr {
@@ -149,66 +197,17 @@ impl Expr {
     }
 }
 
-/// The semantic variant of an expression in the abstract syntax tree (AST).
-#[derive(Debug, Clone, PartialEq)]
-pub enum ExprKind {
-    IntLiteral(i64),
-    FloatLiteral(f64),
-    Identifier(Symbol),
-    Bool(bool),
-    Binary {
-        left: Box<Expr>,
-        op: BinaryOp,
-        right: Box<Expr>,
-    },
-    Unary {
-        op: UnaryOp,
-        expr: Box<Expr>,
-    },
-    Call {
-        callee: Box<Expr>,
-        arguments: Vec<Expr>,
-    },
-}
-
-/// A parsed statement in the abstract syntax tree.
-///
-/// It stores the statement itself in [`StmtKind`] and the part of the source
-/// code that produced it in [`Span`].
-///
-/// The span is used when reporting errors or mapping the statement back to
-/// the original source.
-#[derive(Debug, Clone)]
-pub struct Stmt {
-    kind: StmtKind,
-    span: Span,
-}
-
-// We intentionally compare only the StmtKind here so parser tests can
+// We intentionally compare only the ExprKind here so parser tests can
 // assert AST structure without needing exact span/location matching.
-impl PartialEq for Stmt {
+impl PartialEq for Expr {
     fn eq(&self, other: &Self) -> bool {
         self.kind == other.kind
     }
 }
 
-impl Stmt {
-    pub fn new(kind: StmtKind, span: Span) -> Self {
-        Self { kind, span }
-    }
-
-    pub fn kind(&self) -> &StmtKind {
-        &self.kind
-    }
-
-    pub fn span(&self) -> Span {
-        self.span
-    }
-
-    pub fn debug_with<'a>(&'a self, reg: &'a SymbolRegistry) -> StmtDebug<'a> {
-        StmtDebug { stmt: self, reg }
-    }
-}
+// =============================================================================
+// Statements
+// =============================================================================
 
 /// The semantic variant of a statement in the abstract syntax tree (AST).
 #[derive(Debug, Clone, PartialEq)]
@@ -231,6 +230,49 @@ pub enum StmtKind {
         expr: Expr,
     },
 }
+
+/// A parsed statement in the abstract syntax tree.
+///
+/// It stores the statement itself in [`StmtKind`] and the part of the source
+/// code that produced it in [`Span`].
+///
+/// The span is used when reporting errors or mapping the statement back to
+/// the original source.
+#[derive(Debug, Clone)]
+pub struct Stmt {
+    kind: StmtKind,
+    span: Span,
+}
+
+impl Stmt {
+    pub fn new(kind: StmtKind, span: Span) -> Self {
+        Self { kind, span }
+    }
+
+    pub fn kind(&self) -> &StmtKind {
+        &self.kind
+    }
+
+    pub fn span(&self) -> Span {
+        self.span
+    }
+
+    pub fn debug_with<'a>(&'a self, reg: &'a SymbolRegistry) -> StmtDebug<'a> {
+        StmtDebug { stmt: self, reg }
+    }
+}
+
+// We intentionally compare only the StmtKind here so parser tests can
+// assert AST structure without needing exact span/location matching.
+impl PartialEq for Stmt {
+    fn eq(&self, other: &Self) -> bool {
+        self.kind == other.kind
+    }
+}
+
+// =============================================================================
+// AST Debug Helpers
+// =============================================================================
 
 pub struct ExprDebug<'a> {
     expr: &'a Expr,
