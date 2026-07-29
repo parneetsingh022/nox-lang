@@ -6,8 +6,8 @@ pub mod statement;
 
 use crate::{
     diagnostic::{
-        ExpectedIdentifierError, ExpectedStatementError, ExpectedTokenError, ParserError,
-        SourceFile, Span, UnexpectedEofError,
+        ExpectedIdentifierError, ExpectedSemicolonError, ExpectedStatementError,
+        ExpectedTokenError, ParserError, SourceFile, Span, UnexpectedEofError,
     },
     lexer::{SymbolRegistry, Token, TokenKind},
     parser::ast::SpannedIdentifier,
@@ -107,6 +107,29 @@ impl<'a> Parser<'a> {
             }
             .into()),
         }
+    }
+
+    pub fn expect_semicolon(&mut self) -> Result<Token, ParserError> {
+        let peeked = self.peek();
+
+        if let Some(token) = peeked
+            && token.kind == TokenKind::Semi
+        {
+            self.advance(); // consume the token
+            return Ok(token);
+        }
+
+        // Use the previous token's span so the error diagnostic points to the end
+        // of the current line (where the semicolon is missing) rather than pointing
+        // at the first token on the next line.
+        let err_token = self.previous().or(peeked);
+        let span = err_token.map(|token| token.span).unwrap_or(self.eof_span());
+
+        Err(ExpectedSemicolonError {
+            at: span.into(),
+            src: self.source_file.clone(),
+        }
+        .into())
     }
 
     /// Expects a closing delimiter (like `)` or `}`).
