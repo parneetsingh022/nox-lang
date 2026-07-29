@@ -761,4 +761,22 @@ pub(crate) mod tests {
 
         assert_eq!(error.expected, TokenKind::Comma);
     }
+
+    #[test]
+    fn reports_error_on_trailing_comma() {
+        let error = parse_expression_error("foo(1, )");
+
+        let ParserError::ExpectedExpression(_) = error else {
+            panic!("expected missing expression error after trailing comma, got: {error:?}");
+        };
+    }
+
+    #[test]
+    fn reports_error_on_dangling_comma_at_eof() {
+        let error = parse_expression_error("foo(1,");
+
+        let ParserError::UnexpectedEof(_) = error else {
+            panic!("expected unexpected EOF error, got: {error:?}");
+        };
+    }
 }
