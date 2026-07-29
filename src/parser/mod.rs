@@ -36,13 +36,16 @@ impl<'a> Parser<'a> {
     }
 
     /// Returns the current token without advancing the position.
-    fn peek(&self) -> Option<&Token> {
-        self.tokens.get(self.pos)
+    fn peek(&self) -> Option<Token> {
+        self.tokens.get(self.pos).copied()
     }
 
     /// Returns the most recently consumed token.
-    fn previous(&self) -> Option<&'a Token> {
-        self.pos.checked_sub(1).and_then(|pos| self.tokens.get(pos))
+    fn previous(&self) -> Option<Token> {
+        self.pos
+            .checked_sub(1)
+            .and_then(|pos| self.tokens.get(pos))
+            .copied()
     }
 
     fn eof_span(&self) -> Span {
@@ -51,8 +54,8 @@ impl<'a> Parser<'a> {
     }
 
     /// Consumes the current token and advances the parser position.
-    fn advance(&mut self) -> Option<&Token> {
-        let token = self.tokens.get(self.pos)?;
+    fn advance(&mut self) -> Option<Token> {
+        let token = self.tokens.get(self.pos).copied()?;
         self.pos += 1;
         Some(token)
     }
@@ -62,7 +65,7 @@ impl<'a> Parser<'a> {
         self.peek().is_some_and(|token| token.kind == kind)
     }
 
-    pub fn expect(&mut self, expected: TokenKind) -> Result<&Token, ParserError> {
+    pub fn expect(&mut self, expected: TokenKind) -> Result<Token, ParserError> {
         match self.peek() {
             Some(token) if token.kind == expected => {
                 // Safe to unwrap because peek() just guaranteed a token exists
@@ -112,7 +115,7 @@ impl<'a> Parser<'a> {
         &mut self,
         expected: TokenKind,
         opened_at: Span,
-    ) -> Result<&Token, ParserError> {
+    ) -> Result<Token, ParserError> {
         match self.peek() {
             Some(token) if token.kind == expected => Ok(self.advance().unwrap()),
             _ => Err(crate::diagnostic::UnclosedDelimiterError {
@@ -132,7 +135,7 @@ impl<'a> Parser<'a> {
         .into()
     }
 
-    fn expected_statement_error(&self, token: &Token) -> ParserError {
+    fn expected_statement_error(&self, token: Token) -> ParserError {
         ExpectedStatementError {
             found: token.kind,
             at: token.span.into(),

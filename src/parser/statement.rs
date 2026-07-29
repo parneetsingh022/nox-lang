@@ -9,18 +9,15 @@ use crate::{
 
 impl<'a> Parser<'a> {
     pub fn parse_stmt(&mut self) -> Result<Stmt, ParserError> {
-        let token = self
-            .peek()
-            .cloned()
-            .ok_or_else(|| self.unexpected_eof_error())?;
+        let token = self.peek().ok_or_else(|| self.unexpected_eof_error())?;
 
         match token.kind {
-            TokenKind::Keyword(_) => self.parse_keyword_stmt(&token),
-            _ => Err(self.expected_statement_error(&token)),
+            TokenKind::Keyword(_) => self.parse_keyword_stmt(token),
+            _ => Err(self.expected_statement_error(token)),
         }
     }
 
-    fn parse_keyword_stmt(&mut self, token: &Token) -> Result<Stmt, ParserError> {
+    fn parse_keyword_stmt(&mut self, token: Token) -> Result<Stmt, ParserError> {
         match token.kind {
             TokenKind::Keyword(Keyword::Let) => self.parse_let_stmt(),
             TokenKind::Keyword(_) => Err(self.expected_statement_error(token)),
