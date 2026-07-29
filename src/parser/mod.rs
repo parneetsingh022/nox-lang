@@ -115,7 +115,7 @@ impl<'a> Parser<'a> {
         if let Some(token) = peeked
             && token.kind == TokenKind::Semi
         {
-            self.advance(); // consume the token
+            self.advance(); // consume semicolon
             return Ok(token);
         }
 
