@@ -21,7 +21,7 @@ impl UnaryOp {
         }
     }
 
-    pub fn from_token(token: &Token) -> Option<UnaryOp> {
+    pub fn from_token(token: Token) -> Option<UnaryOp> {
         let op = match token.kind {
             TokenKind::Minus => Self::Minus,
             TokenKind::Bang => Self::Not,
@@ -54,7 +54,7 @@ impl BinaryOp {
         }
     }
 
-    pub fn from_token(token: &Token) -> Option<BinaryOp> {
+    pub fn from_token(token: Token) -> Option<BinaryOp> {
         let op = match token.kind {
             TokenKind::Plus => BinaryOp::Plus,
             TokenKind::Minus => BinaryOp::Minus,
