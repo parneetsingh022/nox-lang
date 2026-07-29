@@ -32,9 +32,7 @@ impl<'a> Parser<'a> {
         self.expect(TokenKind::Eq)?;
 
         let expr = self.parse_expr()?;
-        dbg!("REACHD HERE");
         let semi = self.expect_semicolon()?;
-        dbg!("REACHD HERE");
 
         let span = Span::from_bounds(start, semi.span);
 
