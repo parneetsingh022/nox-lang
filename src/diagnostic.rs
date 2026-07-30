@@ -213,6 +213,10 @@ pub enum ParserError {
 
     #[error(transparent)]
     #[diagnostic(transparent)]
+    ExpectedSemicolon(#[from] ExpectedSemicolonError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
     ExpectedToken(#[from] ExpectedTokenError),
 
     #[error(transparent)]
@@ -309,6 +313,20 @@ pub struct ExpectedIdentifierError {
     pub found: TokenKind,
 
     #[label("expected an identifier here")]
+    pub at: SourceSpan,
+
+    #[source_code]
+    pub src: SourceFile,
+}
+
+#[derive(Error, Debug, Diagnostic)]
+#[error("expected ';'")]
+#[diagnostic(
+    code(nox::parser::expected_semicolon), // Fixed code mismatch!
+    help("add a semicolon `;` to terminate the statement")
+)]
+pub struct ExpectedSemicolonError {
+    #[label("expected ';' here")]
     pub at: SourceSpan,
 
     #[source_code]
