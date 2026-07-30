@@ -284,7 +284,7 @@ pub enum StmtKind {
         expr: Expr,
     },
 
-    /// Evaluates an expression as a standalone statement, discarding its value.
+    /// Evaluates an expression as a standalone statement.
     ///
     /// Expression statements allow side-effecting expressions—such as function
     /// calls or assignments—to be executed where a statement is expected.
