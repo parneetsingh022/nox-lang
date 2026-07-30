@@ -10,7 +10,7 @@ use crate::{
         ExpectedTokenError, ParserError, SourceFile, Span, UnexpectedEofError,
     },
     lexer::{SymbolRegistry, Token, TokenKind},
-    parser::ast::SpannedIdentifier,
+    parser::ast::{SpannedIdentifier, Stmt},
 };
 
 /// Parses a stream of lexical tokens into an abstract syntax tree (AST).
@@ -19,6 +19,17 @@ pub struct Parser<'a> {
     tokens: &'a [Token],
     symbol_registry: &'a SymbolRegistry,
     pos: usize,
+}
+
+impl<'a> Iterator for Parser<'a> {
+    type Item = Result<Stmt, ParserError>;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.is_eof() {
+            return None;
+        }
+
+        Some(self.parse_stmt())
+    }
 }
 
 impl<'a> Parser<'a> {
@@ -46,6 +57,10 @@ impl<'a> Parser<'a> {
             .checked_sub(1)
             .and_then(|pos| self.tokens.get(pos))
             .copied()
+    }
+
+    fn is_eof(&self) -> bool {
+        self.pos >= self.tokens.len()
     }
 
     fn eof_span(&self) -> Span {

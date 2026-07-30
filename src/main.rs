@@ -1,9 +1,9 @@
 use std::{env, fs, process};
 
 use nox_lang::{
-    diagnostic::SourceFile,
+    diagnostic::{ParserError, SourceFile},
     lexer::{Lexer, Token},
-    parser::Parser,
+    parser::{Parser, ast::Stmt},
 };
 
 fn main() {
@@ -40,10 +40,19 @@ fn main() {
         std::process::exit(1);
     }
 
-    let mut parser = Parser::new(&tokens, &lexer.symbol_registry, source_file.clone());
-    match parser.parse_stmt() {
-        Ok(stmt) => println!("{:#?}", stmt.debug_with(&lexer.symbol_registry)),
-        Err(err) => eprintln!("{:?}", miette::Report::new(err)),
+    let parser = Parser::new(&tokens, &lexer.symbol_registry, source_file.clone());
+
+    let ast: Result<Vec<Stmt>, ParserError> = parser.collect();
+
+    match ast {
+        Ok(statements) => {
+            for stmt in statements {
+                println!("{:#?}", stmt.debug_with(&lexer.symbol_registry));
+            }
+        }
+        Err(err) => {
+            eprintln!("{:?}", miette::Report::new(err));
+        }
     }
 }
 
