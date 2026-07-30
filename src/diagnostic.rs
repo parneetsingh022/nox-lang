@@ -337,18 +337,16 @@ pub struct ExpectedSemicolonError {
     pub src: SourceFile,
 }
 
-/// Raised when an expression is used where a statement is required,
-/// but the expression lacks side effects and produces no observable result.
+/// Raised when an expression is used as a statement even though its result
+/// is not meaningful when ignored.
 #[derive(Error, Debug, Diagnostic)]
-#[error("expression cannot be used as a statement")]
+#[error("expression result is unused")]
 #[diagnostic(
     code(nox::parser::invalid_expression_statement),
-    help(
-        "only expressions with side effects (such as assignments or function calls) can stand alone as statements"
-    )
+    help("use the expression as part of another expression, assign its result, or remove it")
 )]
 pub struct InvalidExpressionStatementError {
-    #[label("this expression has no side effects")]
+    #[label("the result of this expression is ignored")]
     pub at: SourceSpan,
 
     #[source_code]
