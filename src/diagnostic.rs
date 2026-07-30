@@ -222,6 +222,10 @@ pub enum ParserError {
     #[error(transparent)]
     #[diagnostic(transparent)]
     UnclosedDelimiter(#[from] UnclosedDelimiterError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    InvalidExpressionStatement(#[from] InvalidExpressionStatementError),
 }
 
 #[derive(Error, Debug, Diagnostic)]
@@ -327,6 +331,24 @@ pub struct ExpectedIdentifierError {
 )]
 pub struct ExpectedSemicolonError {
     #[label("expected ';' here")]
+    pub at: SourceSpan,
+
+    #[source_code]
+    pub src: SourceFile,
+}
+
+/// Raised when an expression is used where a statement is required,
+/// but the expression lacks side effects and produces no observable result.
+#[derive(Error, Debug, Diagnostic)]
+#[error("expression cannot be used as a statement")]
+#[diagnostic(
+    code(nox::parser::invalid_expression_statement),
+    help(
+        "only expressions with side effects (such as assignments or function calls) can stand alone as statements"
+    )
+)]
+pub struct InvalidExpressionStatementError {
+    #[label("this expression has no side effects")]
     pub at: SourceSpan,
 
     #[source_code]

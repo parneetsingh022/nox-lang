@@ -27,6 +27,32 @@ use crate::{
     lexer::{Symbol, SymbolRegistry, Token, TokenKind},
 };
 
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Precedence {
+    Lowest = 0,
+    Assignment = 10, // =
+
+    Term = 60,   // +, -
+    Factor = 70, // *, /
+    Prefix = 80, // -, !
+}
+
+impl Precedence {
+    /// Helper to convert enum level into left and right Pratt binding powers.
+    /// - For Left-associative:  left = base, right = base + 1
+    /// - For Right-associative: left = base + 1, right = base
+    pub fn left_assoc(self) -> (u8, u8) {
+        let base = self as u8;
+        (base, base + 1)
+    }
+
+    pub fn right_assoc(self) -> (u8, u8) {
+        let base = self as u8;
+        (base + 1, base)
+    }
+}
+
 // =============================================================================
 // Operators
 // =============================================================================
@@ -43,7 +69,7 @@ impl UnaryOp {
     /// Prefix operators bind very tightly, higher than multiplication and division.
     pub fn binding_power(self) -> u8 {
         match self {
-            Self::Minus | Self::Not => 5,
+            Self::Minus | Self::Not => Precedence::Prefix as u8,
         }
     }
 
@@ -69,14 +95,18 @@ pub enum BinaryOp {
     Multiply,
     /// Division (`/`)
     Divide,
+    /// Assignment (`=`)
+    Assignment,
 }
 
 impl BinaryOp {
     pub fn binding_power(self) -> (u8, u8) {
         match self {
+            // Right Associative
+            Self::Assignment => Precedence::Assignment.right_assoc(),
             // Left Associative
-            Self::Plus | Self::Minus => (1, 2),
-            Self::Multiply | Self::Divide => (3, 4),
+            Self::Plus | Self::Minus => Precedence::Term.left_assoc(),
+            Self::Multiply | Self::Divide => Precedence::Term.right_assoc(),
         }
     }
 
@@ -86,6 +116,7 @@ impl BinaryOp {
             TokenKind::Minus => BinaryOp::Minus,
             TokenKind::Star => BinaryOp::Multiply,
             TokenKind::Slash => BinaryOp::Divide,
+            TokenKind::Eq => BinaryOp::Assignment,
             _ => return None,
         };
 
@@ -195,6 +226,29 @@ impl Expr {
     pub fn debug_with<'a>(&'a self, reg: &'a SymbolRegistry) -> ExprDebug<'a> {
         ExprDebug { expr: self, reg }
     }
+
+    /// Returns whether this expression can appear as a standalone statement.
+    ///
+    /// Expressions that are not valid in statement position are rejected to avoid
+    /// evaluating and discarding a result unintentionally.
+    pub fn is_valid_expr_statement(&self) -> bool {
+        self.is_assignment() || self.is_call()
+    }
+
+    /// Returns `true` if this expression is an assignment binary operation.
+    fn is_assignment(&self) -> bool {
+        matches!(
+            self.kind(), // Now `self` is an Expr!
+            ExprKind::Binary {
+                op: BinaryOp::Assignment,
+                ..
+            }
+        )
+    }
+    /// Returns `true` if this expression is a function or method call.
+    fn is_call(&self) -> bool {
+        matches!(self.kind(), ExprKind::Call { .. })
+    }
 }
 
 // We intentionally compare only the ExprKind here so parser tests can
@@ -227,6 +281,23 @@ pub enum StmtKind {
         name: SpannedIdentifier,
 
         /// The expression used to initialize the variable.
+        expr: Expr,
+    },
+
+    /// Evaluates an expression as a standalone statement.
+    ///
+    /// Expression statements allow side-effecting expressions—such as function
+    /// calls or assignments—to be executed where a statement is expected.
+    ///
+    /// For example, the statement:
+    ///
+    /// ```text
+    /// print("Hello, world!");
+    /// ```
+    ///
+    /// stores the evaluated expression in `expr`.
+    ExprStmt {
+        /// The inner expression to be evaluated.
         expr: Expr,
     },
 }
@@ -327,6 +398,10 @@ impl fmt::Debug for StmtDebug<'_> {
             StmtKind::Let { name, expr } => f
                 .debug_struct("Let")
                 .field("name", &self.reg.resolve(name.symbol()))
+                .field("expr", &expr.debug_with(self.reg))
+                .finish(),
+            StmtKind::ExprStmt { expr } => f
+                .debug_struct("ExprStmt")
                 .field("expr", &expr.debug_with(self.reg))
                 .finish(),
         }

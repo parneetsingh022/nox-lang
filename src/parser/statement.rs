@@ -1,9 +1,10 @@
 use crate::{
-    diagnostic::{ParserError, Span},
+    diagnostic::{InvalidExpressionStatementError, ParserError, Span},
     lexer::{Keyword, Token, TokenKind},
     parser::{
         Parser,
         ast::{Stmt, StmtKind},
+        expression::is_expr_start,
     },
 };
 
@@ -13,6 +14,7 @@ impl<'a> Parser<'a> {
 
         match token.kind {
             TokenKind::Keyword(_) => self.parse_keyword_stmt(token),
+            _ if is_expr_start(token) => self.parse_expr_stmt(),
             _ => Err(self.expected_statement_error(token)),
         }
     }
@@ -23,6 +25,23 @@ impl<'a> Parser<'a> {
             TokenKind::Keyword(_) => Err(self.expected_statement_error(token)),
             _ => unreachable!("non-keyword token passed to parse_keyword_stmt"),
         }
+    }
+
+    fn parse_expr_stmt(&mut self) -> Result<Stmt, ParserError> {
+        let expr = self.parse_expr()?;
+        let span = expr.span();
+
+        if !expr.is_valid_expr_statement() {
+            return Err(InvalidExpressionStatementError {
+                at: span.into(),
+                src: self.source_file.clone(),
+            }
+            .into());
+        }
+
+        self.expect_semicolon()?;
+
+        Ok(Stmt::new(StmtKind::ExprStmt { expr }, span))
     }
 
     fn parse_let_stmt(&mut self) -> Result<Stmt, ParserError> {
@@ -177,15 +196,19 @@ mod tests {
     }
 
     #[rstest]
-    #[case("42;")]
-    #[case("value;")]
-    #[case("(1 + 2);")]
-    fn reports_expected_statement_error_for_expression(#[case] source: &str) {
-        let error = try_parse_statement(source).err().unwrap();
+    #[case("foo();")]
+    #[case("foo(1, 2);")]
+    #[case("x = 42;")]
+    #[case("x = y = 10;")]
+    fn parses_valid_expression_statements(#[case] source: &str) {
+        let (stmt, reg) = try_parse_statement(source).unwrap_or_else(|err| {
+            panic!("expected valid statement for `{source}`, found error: {err:?}")
+        });
 
         assert!(
-            matches!(error, ParserError::ExpectedStatement(_)),
-            "expected ExpectedStatementError for `{source}`, found: {error:?}"
+            matches!(stmt.kind(), StmtKind::ExprStmt { .. }),
+            "expected ExprStmt for `{source}`, found: {:?}",
+            stmt.debug_with(&reg)
         );
     }
 
@@ -243,21 +266,22 @@ mod tests {
         assert_span(expr.span(), Span::new(18, 24, 1, 19));
     }
 
-    #[test]
-    fn let_statement_reports_missing_semicolon_at_end_of_line() {
-        let source = "let x = 10\nlet y = 20;";
-        let error = try_parse_statement(source).err().unwrap();
-
-        assert!(
-            matches!(error, ParserError::ExpectedSemicolon(_)),
-            "expected ExpectedSemicolonError for `{source}`, found: {error:?}"
-        );
-    }
-
-    #[test]
-    fn let_statement_reports_missing_semicolon_at_end_of_file() {
-        let source = "let x = 10";
-        let error = try_parse_statement(source).err().unwrap();
+    #[rstest]
+    // Mid-file missing semicolon (followed by a newline and next statement)
+    #[case("let x = 10\nlet y = 20;")]
+    #[case("foo(92, 49, age)\nlet y = 20;")]
+    #[case("foo()\nlet y = 20;")]
+    #[case("x = 10\nlet y = 20;")]
+    // End-of-file missing semicolon
+    #[case("let x = 10")]
+    #[case("foo()")]
+    #[case("foo(92, 49, age)")]
+    #[case("x = 10")]
+    #[case("x = 10 * 39 - 19 + 29")]
+    fn reports_missing_semicolon_error(#[case] source: &str) {
+        let error = try_parse_statement(source)
+            .err()
+            .unwrap_or_else(|| panic!("expected parsing to fail for `{source}`, but it succeeded"));
 
         assert!(
             matches!(error, ParserError::ExpectedSemicolon(_)),
