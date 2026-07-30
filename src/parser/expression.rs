@@ -1,6 +1,6 @@
 use crate::{
     diagnostic::{ExpectedExpressionError, ParserError, Span},
-    lexer::{Keyword, Symbol, TokenKind},
+    lexer::{Keyword, Symbol, Token, TokenKind},
     parser::{
         Parser,
         ast::{BinaryOp, Expr, ExprKind, UnaryOp},
@@ -29,6 +29,12 @@ fn is_primary_expr_start(token_kind: TokenKind) -> bool {
             // A boolean "true" or "false" can also start an expression
             | TokenKind::Keyword(Keyword::True | Keyword::False)
     )
+}
+
+/// Checks if the token can start an expression.
+pub(crate) fn is_expr_start(token: Token) -> bool {
+    let kind = token.kind;
+    is_unary_operator(kind) | is_primary_expr_start(kind)
 }
 
 impl<'a> Parser<'a> {
@@ -219,7 +225,7 @@ impl<'a> Parser<'a> {
 
                 // We are missing either a `,` or a `)`.
                 // Check if the current token could be the start of a new expression.
-                if self.is_expr_start() {
+                if self.peek().is_some_and(is_expr_start) {
                     // Example: `hello(29, 39 11)`
                     // The `11` is an expression start. Force a missing comma error here.
                     self.expect(TokenKind::Comma)?;
@@ -296,20 +302,6 @@ impl<'a> Parser<'a> {
             .expect("Lexer produced an invalid float literal");
 
         Expr::new(ExprKind::FloatLiteral(value), span)
-    }
-    /// Checks if the upcoming token can start an expression.
-    ///
-    /// The parser uses this to figure out if it's safe to begin parsing an expression
-    /// (the `nud` step). It simply peeks ahead and returns `true` if the next token is
-    /// either a unary operator or a primary expression.
-    ///
-    /// Returns `false` if we've run out of tokens.
-    fn is_expr_start(&self) -> bool {
-        let Some(current) = self.peek().map(|tok| tok.kind) else {
-            return false;
-        };
-
-        is_unary_operator(current) | is_primary_expr_start(current)
     }
 }
 
