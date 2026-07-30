@@ -32,57 +32,6 @@ fn is_primary_expr_start(token_kind: TokenKind) -> bool {
 }
 
 impl<'a> Parser<'a> {
-    /// Checks if the upcoming token can start an expression.
-    ///
-    /// The parser uses this to figure out if it's safe to begin parsing an expression
-    /// (the `nud` step). It simply peeks ahead and returns `true` if the next token is
-    /// either a unary operator or a primary expression.
-    ///
-    /// Returns `false` if we've run out of tokens.
-    fn is_expr_start(&self) -> bool {
-        let Some(current) = self.peek().map(|tok| tok.kind) else {
-            return false;
-        };
-
-        is_unary_operator(current) | is_primary_expr_start(current)
-    }
-
-    fn parse_boolean(&self, kind: TokenKind, span: Span) -> Expr {
-        let value = match kind {
-            TokenKind::Keyword(Keyword::True) => true,
-            TokenKind::Keyword(Keyword::False) => false,
-            unexpected => {
-                unreachable!("parse_boolean called with non-boolean token: {unexpected:?}")
-            }
-        };
-
-        Expr::new(ExprKind::Bool(value), span)
-    }
-
-    fn parse_integer_literal(&self, symbol: Symbol, span: Span) -> Expr {
-        // It is okay to panic here, because this is not a user error. If the lexer
-        // works as intended, it will not lex any invalid IntLiteral.
-        let value = self
-            .symbol_registry
-            .resolve(symbol)
-            .parse::<i64>()
-            .expect("Lexer produced an invalid integer literal");
-
-        Expr::new(ExprKind::IntLiteral(value), span)
-    }
-
-    fn parse_float_literal(&self, symbol: Symbol, span: Span) -> Expr {
-        // It is okay to panic here, because this is not a user error. If the lexer
-        // works as intended, it will not lex any invalid FloatLiteral.
-        let value = self
-            .symbol_registry
-            .resolve(symbol)
-            .parse::<f64>()
-            .expect("Lexer produced an invalid float literal");
-
-        Expr::new(ExprKind::FloatLiteral(value), span)
-    }
-
     /// Parses an [`Expr`] starting at the current token.
     ///
     /// This is the main entry point for expression parsing. It starts the Pratt
@@ -157,6 +106,44 @@ impl<'a> Parser<'a> {
         };
 
         Ok(expr)
+    }
+
+    /// Parses a unary prefix expression.
+    ///
+    /// This method is called as part of the null denotation (nud) step in
+    /// Pratt parsing. It expects the caller to have already consumed the
+    /// prefix operator token. It dynamically fetches the operator's binding
+    /// power and parses the right-hand operand accordingly.
+    fn parse_unary_expr(&mut self) -> Result<Expr, ParserError> {
+        // `parse_unary` is exclusively called by `parse_prefix_expression`
+        // immediately after advancing past a validated prefix operator.
+        // Therefore, `self.previous()` is guaranteed to exist, and
+        // `UnaryOp::from_token` is guaranteed to succeed. A panic here
+        // indicates a parser bug.
+        let op = self
+            .previous()
+            .expect("parse_unary called without advancing the parser first");
+
+        let start = op.span;
+        let unary_op = UnaryOp::from_token(op).unwrap_or_else(|| {
+            panic!(
+                "parse_unary expected prefix operator, but found {:?}",
+                op.kind
+            )
+        });
+
+        let right_bp = unary_op.binding_power();
+        let expr = self.parse_bp(right_bp)?;
+
+        let span = Span::from_bounds(start, expr.span());
+
+        Ok(Expr::new(
+            ExprKind::Unary {
+                op: unary_op,
+                expr: Box::new(expr),
+            },
+            span,
+        ))
     }
 
     /// Parses the right-hand side of a binary [`Expr`]  and combines it with the
@@ -260,42 +247,69 @@ impl<'a> Parser<'a> {
         ))
     }
 
-    /// Parses a unary prefix expression.
+    /// Parses a boolean keyword token into a boolean [`Expr`].
     ///
-    /// This method is called as part of the null denotation (nud) step in
-    /// Pratt parsing. It expects the caller to have already consumed the
-    /// prefix operator token. It dynamically fetches the operator's binding
-    /// power and parses the right-hand operand accordingly.
-    fn parse_unary_expr(&mut self) -> Result<Expr, ParserError> {
-        // `parse_unary` is exclusively called by `parse_prefix_expression`
-        // immediately after advancing past a validated prefix operator.
-        // Therefore, `self.previous()` is guaranteed to exist, and
-        // `UnaryOp::from_token` is guaranteed to succeed. A panic here
-        // indicates a parser bug.
-        let op = self
-            .previous()
-            .expect("parse_unary called without advancing the parser first");
+    /// `kind` must be either [`TokenKind::Keyword`] containing
+    /// [`Keyword::True`] or [`Keyword::False`]. Any other token kind indicates
+    /// a parser bug and causes this function to panic.
+    fn parse_boolean(&self, kind: TokenKind, span: Span) -> Expr {
+        let value = match kind {
+            TokenKind::Keyword(Keyword::True) => true,
+            TokenKind::Keyword(Keyword::False) => false,
+            unexpected => {
+                unreachable!("parse_boolean called with non-boolean token: {unexpected:?}")
+            }
+        };
 
-        let start = op.span;
-        let unary_op = UnaryOp::from_token(op).unwrap_or_else(|| {
-            panic!(
-                "parse_unary expected prefix operator, but found {:?}",
-                op.kind
-            )
-        });
+        Expr::new(ExprKind::Bool(value), span)
+    }
 
-        let right_bp = unary_op.binding_power();
-        let expr = self.parse_bp(right_bp)?;
+    /// Parses an interned integer literal into an integer [`Expr`].
+    ///
+    /// The literal text is resolved through the symbol registry and converted to
+    /// an [`i64`]. Conversion failure indicates that the lexer produced an invalid
+    /// integer token, so this function panics in that case.
+    fn parse_integer_literal(&self, symbol: Symbol, span: Span) -> Expr {
+        // It is okay to panic here, because this is not a user error. If the lexer
+        // works as intended, it will not lex any invalid IntLiteral.
+        let value = self
+            .symbol_registry
+            .resolve(symbol)
+            .parse::<i64>()
+            .expect("Lexer produced an invalid integer literal");
 
-        let span = Span::from_bounds(start, expr.span());
+        Expr::new(ExprKind::IntLiteral(value), span)
+    }
 
-        Ok(Expr::new(
-            ExprKind::Unary {
-                op: unary_op,
-                expr: Box::new(expr),
-            },
-            span,
-        ))
+    /// Parses an interned floating-point literal into a floating-point [`Expr`].
+    ///
+    /// The literal text is resolved through the symbol registry and converted to
+    /// an [`f64`]. Conversion failure indicates that the lexer produced an invalid
+    /// floating-point token, so this function panics in that case.
+    fn parse_float_literal(&self, symbol: Symbol, span: Span) -> Expr {
+        // It is okay to panic here, because this is not a user error. If the lexer
+        // works as intended, it will not lex any invalid FloatLiteral.
+        let value = self
+            .symbol_registry
+            .resolve(symbol)
+            .parse::<f64>()
+            .expect("Lexer produced an invalid float literal");
+
+        Expr::new(ExprKind::FloatLiteral(value), span)
+    }
+    /// Checks if the upcoming token can start an expression.
+    ///
+    /// The parser uses this to figure out if it's safe to begin parsing an expression
+    /// (the `nud` step). It simply peeks ahead and returns `true` if the next token is
+    /// either a unary operator or a primary expression.
+    ///
+    /// Returns `false` if we've run out of tokens.
+    fn is_expr_start(&self) -> bool {
+        let Some(current) = self.peek().map(|tok| tok.kind) else {
+            return false;
+        };
+
+        is_unary_operator(current) | is_primary_expr_start(current)
     }
 }
 

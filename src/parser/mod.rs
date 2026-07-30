@@ -65,7 +65,7 @@ impl<'a> Parser<'a> {
         self.peek().is_some_and(|token| token.kind == kind)
     }
 
-    pub fn expect(&mut self, expected: TokenKind) -> Result<Token, ParserError> {
+    fn expect(&mut self, expected: TokenKind) -> Result<Token, ParserError> {
         match self.peek() {
             Some(token) if token.kind == expected => {
                 // Safe to unwrap because peek() just guaranteed a token exists
@@ -91,7 +91,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn expect_identifier(&mut self) -> Result<SpannedIdentifier, ParserError> {
+    fn expect_identifier(&mut self) -> Result<SpannedIdentifier, ParserError> {
         let token = self.peek().ok_or_else(|| self.unexpected_eof_error())?;
 
         match token.kind {
@@ -109,7 +109,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn expect_semicolon(&mut self) -> Result<Token, ParserError> {
+    fn expect_semicolon(&mut self) -> Result<Token, ParserError> {
         let peeked = self.peek();
 
         if let Some(token) = peeked
@@ -134,7 +134,7 @@ impl<'a> Parser<'a> {
 
     /// Expects a closing delimiter (like `)` or `}`).
     /// If the token is missing, throws an UnclosedDelimiterError pointing to the `opened_at` span.
-    pub fn expect_closing(
+    fn expect_closing(
         &mut self,
         expected: TokenKind,
         opened_at: Span,
