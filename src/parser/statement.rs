@@ -242,4 +242,26 @@ mod tests {
         assert_eq!("source", symbol_registry.resolve(*symbol));
         assert_span(expr.span(), Span::new(18, 24, 1, 19));
     }
+
+    #[test]
+    fn let_statement_reports_missing_semicolon_at_end_of_line() {
+        let source = "let x = 10\nlet y = 20;";
+        let error = try_parse_statement(source).err().unwrap();
+
+        assert!(
+            matches!(error, ParserError::ExpectedSemicolon(_)),
+            "expected ExpectedSemicolonError for `{source}`, found: {error:?}"
+        );
+    }
+
+    #[test]
+    fn let_statement_reports_missing_semicolon_at_end_of_file() {
+        let source = "let x = 10";
+        let error = try_parse_statement(source).err().unwrap();
+
+        assert!(
+            matches!(error, ParserError::ExpectedSemicolon(_)),
+            "expected ExpectedSemicolonError for `{source}`, found: {error:?}"
+        );
+    }
 }
