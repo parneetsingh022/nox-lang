@@ -217,7 +217,15 @@ impl Lexer {
     /// The start position is usually captured before consuming a token, while the
     /// current cursor position marks the end of that token.
     fn span_from(&self, start: Cursor) -> Span {
-        Span::new(start.offset, self.cursor.offset, start.line, start.column)
+        let end = self.cursor;
+        Span::new(
+            start.offset,
+            end.offset,
+            start.line,
+            start.column,
+            end.line,
+            end.column,
+        )
     }
 
     /// Consumes bytes while `predicate` returns true and returns the consumed text.
@@ -795,25 +803,16 @@ print(false);
     mod token_span {
         use super::*;
 
-        fn s(start: usize, end: usize, line: usize, col: usize) -> Span {
-            Span {
-                start,
-                end,
-                line,
-                column: col,
-            }
-        }
-
         #[test]
         fn lexer_tracks_position_correctly() {
             let code = "let\n  x";
             let (mut lexer, _) = make_lexer(code);
 
             let t1 = next_token(&mut lexer);
-            assert_eq!(t1.span, s(0, 3, 1, 1));
+            assert_eq!(t1.span, Span::single_line(0, 3, 1, 1, 4));
 
             let t2 = next_token(&mut lexer);
-            assert_eq!(t2.span, s(6, 7, 2, 3)); // Accounts for 2 spaces of indentation
+            assert_eq!(t2.span, Span::single_line(6, 7, 2, 3, 4)); // Accounts for 2 spaces of indentation
         }
 
         #[test]
@@ -822,10 +821,10 @@ print(false);
             let (mut lexer, _) = make_lexer(code);
 
             let t1 = next_token(&mut lexer);
-            assert_eq!(t1.span, s(0, 1, 1, 1));
+            assert_eq!(t1.span, Span::single_line(0, 1, 1, 1, 2));
 
             let t2 = next_token(&mut lexer);
-            assert_eq!(t2.span, s(3, 4, 3, 1));
+            assert_eq!(t2.span, Span::single_line(3, 4, 3, 1, 2));
         }
 
         #[test]
@@ -849,7 +848,7 @@ print(false);
                 kind => panic!("expected Identifier found, {:?}", kind),
             }
 
-            assert_eq!(t.span, s(5, 10, 2, 3));
+            assert_eq!(t.span, Span::single_line(5, 10, 2, 3, 8));
         }
 
         #[test]
@@ -865,7 +864,7 @@ print(false);
                 kind => panic!("expected Identifier found, {:?}", kind),
             }
             // Starts at 2, ends at 5, line 1, column 3
-            assert_eq!(t.span, s(2, 5, 1, 3));
+            assert_eq!(t.span, Span::single_line(2, 5, 1, 3, 6));
         }
 
         #[test]
@@ -874,17 +873,17 @@ print(false);
             let (mut lexer, _) = make_lexer(code);
 
             let t1 = next_token(&mut lexer);
-            assert_eq!(t1.span, s(0, 1, 1, 1));
+            assert_eq!(t1.span, Span::single_line(0, 1, 1, 1, 2));
 
             let t2 = next_token(&mut lexer);
-            assert_eq!(t2.span, s(3, 4, 2, 1));
+            assert_eq!(t2.span, Span::single_line(3, 4, 2, 1, 2));
         }
 
         #[rstest]
-        #[case("let", s(0, 3, 1, 1))] // No whitespace
-        #[case("    let", s(4, 7, 1, 5))] // Spaces
-        #[case("\t\tlet", s(2, 5, 1, 3))] // Tabs
-        #[case("\n  let", s(3, 6, 2, 3))] // Newline + Spaces
+        #[case("let", Span::single_line(0, 3, 1, 1, 4))] // No whitespace
+        #[case("    let", Span::single_line(4, 7, 1, 5, 8))] // Spaces
+        #[case("\t\tlet", Span::single_line(2, 5, 1, 3, 6))] // Tabs
+        #[case("\n  let", Span::single_line(3, 6, 2, 3, 6))] // Newline + Spaces
         fn spans_track_columns_correctly(#[case] code: &str, #[case] expected_span: Span) {
             assert_token_spans(
                 code,
@@ -914,15 +913,15 @@ print(false);
         }
 
         #[rstest]
-        #[case(";", TokenKind::Semi, s(0, 1, 1, 1))]
-        #[case(",", TokenKind::Comma, s(0, 1, 1, 1))]
-        #[case(".", TokenKind::Dot, s(0, 1, 1, 1))]
-        #[case("(", TokenKind::OpenParen, s(0, 1, 1, 1))]
-        #[case(")", TokenKind::CloseParen, s(0, 1, 1, 1))]
-        #[case("{", TokenKind::OpenBrace, s(0, 1, 1, 1))]
-        #[case("}", TokenKind::CloseBrace, s(0, 1, 1, 1))]
-        #[case("[", TokenKind::OpenBracket, s(0, 1, 1, 1))]
-        #[case("]", TokenKind::CloseBracket, s(0, 1, 1, 1))]
+        #[case(";", TokenKind::Semi, Span::single_line(0, 1, 1, 1, 2))]
+        #[case(",", TokenKind::Comma, Span::single_line(0, 1, 1, 1, 2))]
+        #[case(".", TokenKind::Dot, Span::single_line(0, 1, 1, 1, 2))]
+        #[case("(", TokenKind::OpenParen, Span::single_line(0, 1, 1, 1, 2))]
+        #[case(")", TokenKind::CloseParen, Span::single_line(0, 1, 1, 1, 2))]
+        #[case("{", TokenKind::OpenBrace, Span::single_line(0, 1, 1, 1, 2))]
+        #[case("}", TokenKind::CloseBrace, Span::single_line(0, 1, 1, 1, 2))]
+        #[case("[", TokenKind::OpenBracket, Span::single_line(0, 1, 1, 1, 2))]
+        #[case("]", TokenKind::CloseBracket, Span::single_line(0, 1, 1, 1, 2))]
         fn test_punctuation_and_delimiters(
             #[case] code: &str,
             #[case] kind: TokenKind,
@@ -941,19 +940,70 @@ print(false);
             let code = "let x = (1 + [2 * 3]);";
             let (mut lexer, _) = make_lexer(code);
 
-            assert_eq!(next_token(&mut lexer).span, s(0, 3, 1, 1)); // let
-            assert_eq!(next_token(&mut lexer).span, s(4, 5, 1, 5)); // x
-            assert_eq!(next_token(&mut lexer).span, s(6, 7, 1, 7)); // =
-            assert_eq!(next_token(&mut lexer).span, s(8, 9, 1, 9)); // (
-            assert_eq!(next_token(&mut lexer).span, s(9, 10, 1, 10)); // 1
-            assert_eq!(next_token(&mut lexer).span, s(11, 12, 1, 12)); // +
-            assert_eq!(next_token(&mut lexer).span, s(13, 14, 1, 14)); // [
-            assert_eq!(next_token(&mut lexer).span, s(14, 15, 1, 15)); // 2
-            assert_eq!(next_token(&mut lexer).span, s(16, 17, 1, 17)); // *
-            assert_eq!(next_token(&mut lexer).span, s(18, 19, 1, 19)); // 3
-            assert_eq!(next_token(&mut lexer).span, s(19, 20, 1, 20)); // ]
-            assert_eq!(next_token(&mut lexer).span, s(20, 21, 1, 21)); // )
-            assert_eq!(next_token(&mut lexer).span, s(21, 22, 1, 22)); // ;
+            assert_eq!(
+                next_token(&mut lexer).span,
+                Span::single_line(0, 3, 1, 1, 4)
+            ); // let
+
+            assert_eq!(
+                next_token(&mut lexer).span,
+                Span::single_line(4, 5, 1, 5, 6)
+            ); // x
+
+            assert_eq!(
+                next_token(&mut lexer).span,
+                Span::single_line(6, 7, 1, 7, 8)
+            ); // =
+
+            assert_eq!(
+                next_token(&mut lexer).span,
+                Span::single_line(8, 9, 1, 9, 10)
+            ); // (
+
+            assert_eq!(
+                next_token(&mut lexer).span,
+                Span::single_line(9, 10, 1, 10, 11)
+            ); // 1
+
+            assert_eq!(
+                next_token(&mut lexer).span,
+                Span::single_line(11, 12, 1, 12, 13)
+            ); // +
+
+            assert_eq!(
+                next_token(&mut lexer).span,
+                Span::single_line(13, 14, 1, 14, 15)
+            ); // [
+
+            assert_eq!(
+                next_token(&mut lexer).span,
+                Span::single_line(14, 15, 1, 15, 16)
+            ); // 2
+
+            assert_eq!(
+                next_token(&mut lexer).span,
+                Span::single_line(16, 17, 1, 17, 18)
+            ); // *
+
+            assert_eq!(
+                next_token(&mut lexer).span,
+                Span::single_line(18, 19, 1, 19, 20)
+            ); // 3
+
+            assert_eq!(
+                next_token(&mut lexer).span,
+                Span::single_line(19, 20, 1, 20, 21)
+            ); // ]
+
+            assert_eq!(
+                next_token(&mut lexer).span,
+                Span::single_line(20, 21, 1, 21, 22)
+            ); // )
+
+            assert_eq!(
+                next_token(&mut lexer).span,
+                Span::single_line(21, 22, 1, 22, 23)
+            ); // ;
 
             assert_eof(&mut lexer);
         }
@@ -963,11 +1013,30 @@ print(false);
             let code = "// comment\nlet x = 10;";
             let (mut lexer, _) = make_lexer(code);
 
-            assert_eq!(next_token(&mut lexer).span, s(11, 14, 2, 1)); // let
-            assert_eq!(next_token(&mut lexer).span, s(15, 16, 2, 5)); // x
-            assert_eq!(next_token(&mut lexer).span, s(17, 18, 2, 7)); // =
-            assert_eq!(next_token(&mut lexer).span, s(19, 21, 2, 9)); // 10
-            assert_eq!(next_token(&mut lexer).span, s(21, 22, 2, 11)); // ;
+            assert_eq!(
+                next_token(&mut lexer).span,
+                Span::single_line(11, 14, 2, 1, 4)
+            ); // let
+
+            assert_eq!(
+                next_token(&mut lexer).span,
+                Span::single_line(15, 16, 2, 5, 6)
+            ); // x
+
+            assert_eq!(
+                next_token(&mut lexer).span,
+                Span::single_line(17, 18, 2, 7, 8)
+            ); // =
+
+            assert_eq!(
+                next_token(&mut lexer).span,
+                Span::single_line(19, 21, 2, 9, 11)
+            ); // 10
+
+            assert_eq!(
+                next_token(&mut lexer).span,
+                Span::single_line(21, 22, 2, 11, 12)
+            ); // ;
 
             assert_eof(&mut lexer);
         }

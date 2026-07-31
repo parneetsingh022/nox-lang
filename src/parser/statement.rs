@@ -130,6 +130,21 @@ mod tests {
     }
 
     #[rstest]
+    #[case("let x = 5 \n + 6;")] // Line break before operator
+    #[case("let x = 10 + \n 20;")] // Line break after operator
+    #[case("let x = \n foo();")] // Line break after assignment
+    #[case("foo(\n bar(), \n baz() \n);")] // Arguments on separate lines
+    #[case("let x = \n ( \n 5 + 6 \n );")] // Line breaks inside grouping parentheses
+    #[case("x \n = \n 5;")] // Highly fragmented assignment
+    #[case("let x = foo() \n + \n bar();")] // Line breaks surrounding an operator
+    fn does_not_report_missing_operator_for_multiline_expressions(#[case] source: &str) {
+        try_parse_statement(source).unwrap_or_else(|error| {
+            panic!(
+                "expected multiline expression `{source}` to parse successfully, found: {error:?}"
+            )
+        });
+    }
+    #[rstest]
     #[case("x", "42", int(42))]
     #[case("_underscore_variable", "204.2101", float(204.2101))]
     #[case("___boolean_true", "true", boolean(true))]
@@ -234,7 +249,7 @@ mod tests {
         let source = "let result = 42;";
         let (stmt, _) = parse_statement(source);
 
-        assert_span(stmt.span(), Span::new(0, source.len(), 1, 1));
+        assert_span(stmt.span(), Span::single_line(0, source.len(), 1, 1, 17));
     }
 
     #[test]
@@ -242,7 +257,7 @@ mod tests {
         let source = "\n  let result = 42;";
         let (stmt, _) = parse_statement(source);
 
-        assert_span(stmt.span(), Span::new(3, source.len(), 2, 3));
+        assert_span(stmt.span(), Span::single_line(3, source.len(), 2, 3, 19));
     }
 
     #[test]
@@ -252,7 +267,7 @@ mod tests {
 
         let (name, _) = as_let(&stmt);
 
-        assert_span(name.span(), Span::new(4, 10, 1, 5));
+        assert_span(name.span(), Span::single_line(4, 10, 1, 5, 11));
     }
 
     #[test]
@@ -262,7 +277,7 @@ mod tests {
 
         let (name, _) = as_let(&stmt);
 
-        assert_span(name.span(), Span::new(7, 16, 2, 7));
+        assert_span(name.span(), Span::single_line(7, 16, 2, 7, 16));
     }
 
     #[test]
@@ -273,14 +288,14 @@ mod tests {
         let (name, expr) = as_let(&stmt);
 
         assert_eq!("destination", symbol_registry.resolve(name.symbol()));
-        assert_span(name.span(), Span::new(4, 15, 1, 5));
+        assert_span(name.span(), Span::single_line(4, 15, 1, 5, 16));
 
         let ExprKind::Identifier(symbol) = expr.kind() else {
             panic!("expected identifier expression, found: {:?}", expr.kind());
         };
 
         assert_eq!("source", symbol_registry.resolve(*symbol));
-        assert_span(expr.span(), Span::new(18, 24, 1, 19));
+        assert_span(expr.span(), Span::single_line(18, 24, 1, 19, 25));
     }
 
     #[rstest]
@@ -329,6 +344,8 @@ mod tests {
     #[case("x = 5 6;")]
     #[case("x = value other;")]
     #[case("x = foo() bar();")]
+    #[case("y = (14 * 25) \n - 900 105;")]
+    #[case("y = (14 * 25) - \n 900 105;")]
     fn reports_missing_operator_in_expression_statements(#[case] source: &str) {
         let error = try_parse_statement(source).err().unwrap_or_else(|| {
             panic!("expected adjacent expressions to be rejected for `{source}`")

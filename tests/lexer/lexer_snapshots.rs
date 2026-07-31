@@ -25,8 +25,8 @@ fn snapshot_tokens(source: &str) -> String {
         results.push(format!(
             "kind: {}\npos:  {}:{}\nrange: [{}..{}]\ntext:  {:?}\n",
             kind_str,
-            t.span.line,
-            t.span.column,
+            t.span.start_line,
+            t.span.start_column,
             t.span.start,
             t.span.end,
             &source[t.span.start..t.span.end]
