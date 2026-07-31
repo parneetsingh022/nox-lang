@@ -234,7 +234,7 @@ mod tests {
         let source = "let result = 42;";
         let (stmt, _) = parse_statement(source);
 
-        assert_span(stmt.span(), Span::new(0, source.len(), 1, 1));
+        assert_span(stmt.span(), Span::single_line(0, source.len(), 1, 1, 17));
     }
 
     #[test]
@@ -242,7 +242,7 @@ mod tests {
         let source = "\n  let result = 42;";
         let (stmt, _) = parse_statement(source);
 
-        assert_span(stmt.span(), Span::new(3, source.len(), 2, 3));
+        assert_span(stmt.span(), Span::single_line(3, source.len(), 2, 3, 19));
     }
 
     #[test]
@@ -252,7 +252,7 @@ mod tests {
 
         let (name, _) = as_let(&stmt);
 
-        assert_span(name.span(), Span::new(4, 10, 1, 5));
+        assert_span(name.span(), Span::single_line(4, 10, 1, 5, 11));
     }
 
     #[test]
@@ -262,7 +262,7 @@ mod tests {
 
         let (name, _) = as_let(&stmt);
 
-        assert_span(name.span(), Span::new(7, 16, 2, 7));
+        assert_span(name.span(), Span::single_line(7, 16, 2, 7, 16));
     }
 
     #[test]
@@ -273,14 +273,14 @@ mod tests {
         let (name, expr) = as_let(&stmt);
 
         assert_eq!("destination", symbol_registry.resolve(name.symbol()));
-        assert_span(name.span(), Span::new(4, 15, 1, 5));
+        assert_span(name.span(), Span::single_line(4, 15, 1, 5, 16));
 
         let ExprKind::Identifier(symbol) = expr.kind() else {
             panic!("expected identifier expression, found: {:?}", expr.kind());
         };
 
         assert_eq!("source", symbol_registry.resolve(*symbol));
-        assert_span(expr.span(), Span::new(18, 24, 1, 19));
+        assert_span(expr.span(), Span::single_line(18, 24, 1, 19, 25));
     }
 
     #[rstest]
