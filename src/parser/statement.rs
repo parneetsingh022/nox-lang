@@ -130,6 +130,21 @@ mod tests {
     }
 
     #[rstest]
+    #[case("let x = 5 \n + 6;")] // Line break before operator
+    #[case("let x = 10 + \n 20;")] // Line break after operator
+    #[case("let x = \n foo();")] // Line break after assignment
+    #[case("foo(\n bar(), \n baz() \n);")] // Arguments on separate lines
+    #[case("let x = \n ( \n 5 + 6 \n );")] // Line breaks inside grouping parentheses
+    #[case("x \n = \n 5;")] // Highly fragmented assignment
+    #[case("let x = foo() \n + \n bar();")] // Line breaks surrounding an operator
+    fn does_not_report_missing_operator_for_multiline_expressions(#[case] source: &str) {
+        try_parse_statement(source).unwrap_or_else(|error| {
+            panic!(
+                "expected multiline expression `{source}` to parse successfully, found: {error:?}"
+            )
+        });
+    }
+    #[rstest]
     #[case("x", "42", int(42))]
     #[case("_underscore_variable", "204.2101", float(204.2101))]
     #[case("___boolean_true", "true", boolean(true))]
@@ -329,6 +344,8 @@ mod tests {
     #[case("x = 5 6;")]
     #[case("x = value other;")]
     #[case("x = foo() bar();")]
+    #[case("y = (14 * 25) \n - 900 105;")]
+    #[case("y = (14 * 25) - \n 900 105;")]
     fn reports_missing_operator_in_expression_statements(#[case] source: &str) {
         let error = try_parse_statement(source).err().unwrap_or_else(|| {
             panic!("expected adjacent expressions to be rejected for `{source}`")
