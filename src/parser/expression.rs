@@ -1,5 +1,5 @@
 use crate::{
-    diagnostic::{ExpectedExpressionError, MissingOperatorError, ParserError, Span},
+    diagnostic::{ParserError, Span},
     lexer::{Keyword, Symbol, Token, TokenKind},
     parser::{
         Parser,
@@ -85,12 +85,11 @@ impl<'a> Parser<'a> {
 
         let right = self.parse_expr()?;
 
-        Err(MissingOperatorError {
+        Err(ParserError::MissingOperator {
             left_span: left.into(),
             right_span: right.span().into(),
             src: self.source_file.clone(),
-        }
-        .into())
+        })
     }
 
     /// Parses an [`Expr`] using Pratt parsing.
@@ -148,12 +147,11 @@ impl<'a> Parser<'a> {
             _ if kind.is_boolean() => self.parse_boolean(kind, span),
             _ if is_unary_operator(kind) => self.parse_unary_expr()?,
             _ => {
-                return Err(ExpectedExpressionError {
+                return Err(ParserError::ExpectedExpression {
                     at: span.into(),
                     src: self.source_file.clone(),
                     found: kind,
-                }
-                .into());
+                });
             }
         };
 
@@ -826,7 +824,7 @@ pub(crate) mod tests {
     fn reports_missing_comma_between_arguments(#[case] source: &str) {
         let error = parse_expression_error(source);
 
-        let ParserError::ExpectedToken(error) = error else {
+        let ParserError::ExpectedToken { expected, .. } = error else {
             panic!(
                 "expected ExpectedTokenError for missing comma in `{source}`, \
                  got: {error:?}"
@@ -834,7 +832,7 @@ pub(crate) mod tests {
         };
 
         assert_eq!(
-            error.expected,
+            expected,
             TokenKind::Comma,
             "expected a comma to be required in `{source}`"
         );
@@ -851,7 +849,7 @@ pub(crate) mod tests {
         let error = parse_expression_error(source);
 
         assert!(
-            matches!(error, ParserError::ExpectedExpression(_)),
+            matches!(error, ParserError::ExpectedExpression { .. }),
             "expected ExpectedExpressionError after trailing comma in `{source}`, \
          got: {error:?}"
         );
@@ -867,7 +865,7 @@ pub(crate) mod tests {
         let error = parse_expression_error(source);
 
         assert!(
-            matches!(error, ParserError::UnexpectedEof(_)),
+            matches!(error, ParserError::UnexpectedEof { .. }),
             "expected UnexpectedEofError after dangling comma in `{source}`, \
          got: {error:?}"
         );
@@ -882,7 +880,7 @@ pub(crate) mod tests {
         let error = parse_expression_error(source);
 
         assert!(
-            matches!(error, ParserError::ExpectedExpression(_)),
+            matches!(error, ParserError::ExpectedExpression { .. }),
             "expected ExpectedExpressionError for missing first argument in `{source}`, \
          got: {error:?}"
         );
@@ -896,7 +894,7 @@ pub(crate) mod tests {
         let error = parse_expression_error(source);
 
         assert!(
-            matches!(error, ParserError::ExpectedExpression(_)),
+            matches!(error, ParserError::ExpectedExpression { .. }),
             "expected ExpectedExpressionError between commas in `{source}`, \
          got: {error:?}"
         );

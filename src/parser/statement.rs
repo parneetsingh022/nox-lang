@@ -1,5 +1,5 @@
 use crate::{
-    diagnostic::{InvalidExpressionStatementError, ParserError, Span},
+    diagnostic::{ParserError, Span},
     lexer::{Keyword, Token, TokenKind},
     parser::{
         Parser,
@@ -35,11 +35,10 @@ impl<'a> Parser<'a> {
         self.expect_semicolon()?;
 
         if !expr.is_valid_expr_statement() {
-            return Err(InvalidExpressionStatementError {
+            return Err(ParserError::InvalidExpressionStatement {
                 at: span.into(),
                 src: self.source_file.clone(),
-            }
-            .into());
+            });
         }
 
         Ok(Stmt::new(StmtKind::ExprStmt { expr }, span))
@@ -208,7 +207,7 @@ mod tests {
         let error = try_parse_statement("").err().unwrap();
 
         assert!(
-            matches!(error, ParserError::UnexpectedEof(_)),
+            matches!(error, ParserError::UnexpectedEof { .. }),
             "expected unexpected EOF, found: {error:?}"
         );
     }
@@ -302,7 +301,7 @@ mod tests {
             .unwrap_or_else(|| panic!("expected parsing to fail for `{source}`, but it succeeded"));
 
         assert!(
-            matches!(error, ParserError::ExpectedSemicolon(_)),
+            matches!(error, ParserError::ExpectedSemicolon { .. }),
             "expected ExpectedSemicolonError for `{source}`, found: {error:?}"
         );
     }
@@ -320,7 +319,7 @@ mod tests {
         });
 
         assert!(
-            matches!(error, ParserError::MissingOperator(_)),
+            matches!(error, ParserError::MissingOperator { .. }),
             "expected MissingOperatorError for `{source}`, found: {error:?}"
         );
     }
@@ -336,7 +335,7 @@ mod tests {
         });
 
         assert!(
-            matches!(error, ParserError::MissingOperator(_)),
+            matches!(error, ParserError::MissingOperator { .. }),
             "expected MissingOperatorError for `{source}`, found: {error:?}"
         );
     }
@@ -354,7 +353,7 @@ mod tests {
             .unwrap_or_else(|| panic!("expected a missing semicolon error for `{source}`"));
 
         assert!(
-            matches!(error, ParserError::ExpectedSemicolon(_)),
+            matches!(error, ParserError::ExpectedSemicolon { .. }),
             "expected ExpectedSemicolonError for `{source}`, found: {error:?}"
         );
     }
@@ -369,7 +368,7 @@ mod tests {
             .unwrap_or_else(|| panic!("expected a missing semicolon error for `{source}`"));
 
         assert!(
-            matches!(error, ParserError::ExpectedSemicolon(_)),
+            matches!(error, ParserError::ExpectedSemicolon { .. }),
             "expected ExpectedSemicolonError for `{source}`, found: {error:?}"
         );
     }
@@ -383,7 +382,7 @@ mod tests {
         });
 
         assert!(
-            matches!(error, ParserError::MissingOperator(_)),
+            matches!(error, ParserError::MissingOperator { .. }),
             "expected MissingOperatorError for `{source}`, found: {error:?}"
         );
     }

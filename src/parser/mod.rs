@@ -5,10 +5,7 @@ pub mod expression;
 pub mod statement;
 
 use crate::{
-    diagnostic::{
-        ExpectedIdentifierError, ExpectedSemicolonError, ExpectedStatementError,
-        ExpectedTokenError, ParserError, SourceFile, Span, UnexpectedEofError,
-    },
+    diagnostic::{ParserError, SourceFile, Span},
     lexer::{SymbolRegistry, Token, TokenKind},
     parser::ast::{SpannedIdentifier, Stmt},
 };
@@ -93,13 +90,12 @@ impl<'a> Parser<'a> {
                 // Fall back to the previous token's span if available,
                 // otherwise use the current token's span.
                 let span = self.previous().map(|prev| prev.span).unwrap_or(token.span);
-                Err(ExpectedTokenError {
+                Err(ParserError::ExpectedToken {
                     expected,
                     found,
                     at: span.into(),
                     src: self.source_file.clone(),
-                }
-                .into())
+                })
             }
 
             None => Err(self.unexpected_eof_error()),
@@ -115,12 +111,11 @@ impl<'a> Parser<'a> {
                 self.advance().unwrap();
                 Ok(SpannedIdentifier::new(symbol, span))
             }
-            _ => Err(ExpectedIdentifierError {
+            _ => Err(ParserError::ExpectedIdentifier {
                 found: token.kind,
                 at: token.span.into(),
                 src: self.source_file.clone(),
-            }
-            .into()),
+            }),
         }
     }
 
@@ -140,11 +135,10 @@ impl<'a> Parser<'a> {
         let err_token = self.previous().or(peeked);
         let span = err_token.map(|token| token.span).unwrap_or(self.eof_span());
 
-        Err(ExpectedSemicolonError {
+        Err(ParserError::ExpectedSemicolon {
             at: span.into(),
             src: self.source_file.clone(),
-        }
-        .into())
+        })
     }
 
     /// Expects a closing delimiter (like `)` or `}`).
@@ -156,29 +150,26 @@ impl<'a> Parser<'a> {
     ) -> Result<Token, ParserError> {
         match self.peek() {
             Some(token) if token.kind == expected => Ok(self.advance().unwrap()),
-            _ => Err(crate::diagnostic::UnclosedDelimiterError {
+            _ => Err(ParserError::UnclosedDelimiter {
                 expected,
                 opened_at: opened_at.into(),
                 src: self.source_file.clone(),
-            }
-            .into()),
+            }),
         }
     }
 
     fn unexpected_eof_error(&self) -> ParserError {
-        UnexpectedEofError {
+        ParserError::UnexpectedEof {
             at: self.eof_span().into(),
             src: self.source_file.clone(),
         }
-        .into()
     }
 
     fn expected_statement_error(&self, token: Token) -> ParserError {
-        ExpectedStatementError {
+        ParserError::ExpectedStatement {
             found: token.kind,
             at: token.span.into(),
             src: self.source_file.clone(),
         }
-        .into()
     }
 }

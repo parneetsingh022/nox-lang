@@ -4,12 +4,12 @@ expression: snapshot_lexer_errors(source)
 ---
 nox::lexer::unterminated_comment
 
-  × Unterminated multi-line comment
+  × unterminated multi-line comment
    ╭─[main.nox:4:1]
  3 │ 
  4 │ /* This block comment
    · ─┬
-   ·  ╰── this comment was never closed
+   ·  ╰── this comment is never closed
  5 │    continues across multiple lines
    ╰────
-  help: Multi-line comments started with '/*' must be closed with '*/'.
+  help: close the comment with `*/`
