@@ -7,10 +7,7 @@ pub use self::{
 
 use miette::SourceSpan;
 
-use crate::diagnostic::{
-    IncompleteFloatError, InvalidNumericSuffixError, LexerError, SourceFile, Span,
-    UnexpectedCharError, UnterminatedCommentError,
-};
+use crate::diagnostic::{LexerError, SourceFile, Span};
 
 #[cfg(test)]
 pub fn make_lexer(code: &str) -> (Lexer, SourceFile) {
@@ -277,11 +274,10 @@ impl Lexer {
                 let error_span = SourceSpan::new(start.offset.into(), 2);
                 // Unterminated block comments are fatal because the lexer cannot reliably
                 // determine where normal tokenization should resume.
-                return Err(UnterminatedCommentError {
+                return Err(LexerError::UnterminatedComment {
                     at: error_span,
                     src: self.source_file.clone(),
-                }
-                .into());
+                });
             }
             self.advance();
         }
@@ -291,10 +287,10 @@ impl Lexer {
         Ok(())
     }
 
-    fn push_diagnostic(&mut self, err: impl Into<LexerError>) {
+    fn push_diagnostic(&mut self, err: LexerError) {
         // Store diagnostics for errors where the lexer can still continue scanning.
         // These are printed together after tokenization finishes.
-        self.errors.push(err.into());
+        self.errors.push(err);
     }
 
     /// Creates an `Unexpected` token for an unrecognized character.
@@ -306,7 +302,7 @@ impl Lexer {
 
         let span = self.span_from(start);
 
-        self.push_diagnostic(UnexpectedCharError {
+        self.push_diagnostic(LexerError::UnexpectedChar {
             char: ch,
             at: span.into(),
             src: self.source_file.clone(),
@@ -326,7 +322,7 @@ impl Lexer {
 
         let span = self.span_from(start);
 
-        self.push_diagnostic(InvalidNumericSuffixError {
+        self.push_diagnostic(LexerError::InvalidNumericSuffix {
             at: span.into(),
             src: self.source_file.clone(),
         });
@@ -342,13 +338,12 @@ impl Lexer {
         let span = self.span_from(start);
         let source_span = span.into();
 
-        let err = IncompleteFloatError {
-            at: source_span,
-            src: self.source_file.clone(),
-
-            suggestion: source_span,
+        let err = LexerError::IncompleteFloat {
             // `span.end - 1` removes the trailing `.` from the suggestion value.
-            val: self.source_file.contents()[span.start..span.end - 1].to_string(),
+            value: self.source_file.contents()[span.start..span.end - 1].to_string(),
+            at: source_span,
+            suggestion: source_span,
+            src: self.source_file.clone(),
         };
 
         self.push_diagnostic(err);
@@ -986,22 +981,22 @@ print(false);
             // Single error case
             assert_lexer_errors(
                 "395.",
-                &[|err| matches!(err, LexerError::IncompleteFloat(_))],
+                &[|err| matches!(err, LexerError::IncompleteFloat { .. })],
             );
 
             // Multiple errors in one string
             assert_lexer_errors(
                 "395. 123.",
                 &[
-                    |err| matches!(err, LexerError::IncompleteFloat(_)),
-                    |err| matches!(err, LexerError::IncompleteFloat(_)),
+                    |err| matches!(err, LexerError::IncompleteFloat { .. }),
+                    |err| matches!(err, LexerError::IncompleteFloat { .. }),
                 ],
             );
 
             // Incomplete float followed by an integer
             assert_lexer_errors(
                 "423. 34",
-                &[|err| matches!(err, LexerError::IncompleteFloat(_))],
+                &[|err| matches!(err, LexerError::IncompleteFloat { .. })],
             );
         }
 
@@ -1010,8 +1005,8 @@ print(false);
             assert_lexer_errors(
                 "395abc 492.4adb",
                 &[
-                    |err| matches!(err, LexerError::InvalidNumericSuffix(_)),
-                    |err| matches!(err, LexerError::InvalidNumericSuffix(_)),
+                    |err| matches!(err, LexerError::InvalidNumericSuffix { .. }),
+                    |err| matches!(err, LexerError::InvalidNumericSuffix { .. }),
                 ],
             )
         }
@@ -1021,7 +1016,10 @@ print(false);
             let cases = vec!["@", "#", "$", "§", "name@unexp", "@name"];
 
             for code in cases {
-                assert_lexer_errors(code, &[|err| matches!(err, LexerError::UnexpectedChar(_))])
+                assert_lexer_errors(
+                    code,
+                    &[|err| matches!(err, LexerError::UnexpectedChar { .. })],
+                )
             }
         }
     }

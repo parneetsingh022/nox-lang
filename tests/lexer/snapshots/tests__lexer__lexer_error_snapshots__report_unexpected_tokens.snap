@@ -2,46 +2,42 @@
 source: tests/lexer/lexer_error_snapshots.rs
 expression: "snapshot_lexer_errors(\"unexpected 😀 error Ñ你 好\")"
 ---
-nox::unexpected_char
+nox::lexer::unexpected_char
 
-  × Unexpected character '😀'
+  × unexpected character `😀`
    ╭─[main.nox:1:12]
  1 │ unexpected 😀 error Ñ你 好
    ·            ─┬
-   ·             ╰── invalid character
+   ·             ╰── this character is not recognized
    ╰────
-  help: The symbol '😀' is not recognized by nox. Ensure your code only uses
-        valid identifiers, operators, and syntax.
+  help: remove the character or replace it with valid syntax
 
-nox::unexpected_char
+nox::lexer::unexpected_char
 
-  × Unexpected character 'Ñ'
+  × unexpected character `Ñ`
    ╭─[main.nox:1:23]
  1 │ unexpected 😀 error Ñ你 好
    ·                     ┬
-   ·                     ╰── invalid character
+   ·                     ╰── this character is not recognized
    ╰────
-  help: The symbol 'Ñ' is not recognized by nox. Ensure your code only uses
-        valid identifiers, operators, and syntax.
+  help: remove the character or replace it with valid syntax
 
-nox::unexpected_char
+nox::lexer::unexpected_char
 
-  × Unexpected character '你'
+  × unexpected character `你`
    ╭─[main.nox:1:25]
  1 │ unexpected 😀 error Ñ你 好
    ·                      ─┬
-   ·                       ╰── invalid character
+   ·                       ╰── this character is not recognized
    ╰────
-  help: The symbol '你' is not recognized by nox. Ensure your code only uses
-        valid identifiers, operators, and syntax.
+  help: remove the character or replace it with valid syntax
 
-nox::unexpected_char
+nox::lexer::unexpected_char
 
-  × Unexpected character '好'
+  × unexpected character `好`
    ╭─[main.nox:1:29]
  1 │ unexpected 😀 error Ñ你 好
    ·                         ─┬
-   ·                          ╰── invalid character
+   ·                          ╰── this character is not recognized
    ╰────
-  help: The symbol '好' is not recognized by nox. Ensure your code only uses
-        valid identifiers, operators, and syntax.
+  help: remove the character or replace it with valid syntax
