@@ -1,5 +1,5 @@
 use crate::{
-    diagnostic::{ExpectedExpressionError, ParserError, Span},
+    diagnostic::{ExpectedExpressionError, MissingOperatorError, ParserError, Span},
     lexer::{Keyword, Symbol, Token, TokenKind},
     parser::{
         Parser,
@@ -45,6 +45,52 @@ impl<'a> Parser<'a> {
     /// be parsed.
     pub fn parse_expr(&mut self) -> Result<Expr, ParserError> {
         self.parse_bp(0)
+    }
+
+    /// Ensures that a completed statement expression is not immediately followed
+    /// by another expression on the same line.
+    ///
+    /// This check is used after parsing expressions that must end before a statement
+    /// terminator, such as the initializer in a let statement or a standalone
+    /// expression statement.
+    ///
+    /// For example, in let x = 5 6;, the parser successfully parses 5 as one
+    /// expression, but the following 6 indicates that an operator is probably
+    /// missing between them. The second expression is parsed so its span can be
+    /// included in a [MissingOperatorError].
+    ///
+    /// This validation is intentionally not performed by [Parser::parse_expr].
+    /// Expression parsing is also used inside contexts such as function argument
+    /// lists, where an adjacent expression may instead indicate a missing comma.
+    /// The surrounding grammar rule is responsible for deciding what tokens are
+    /// valid after an expression.
+    ///
+    /// Expressions beginning on a different line are left untouched so the
+    /// statement parser can report a more appropriate error, such as a missing
+    /// semicolon.
+    pub(super) fn ensure_no_adjacent_expression(&mut self, left: Span) -> Result<(), ParserError> {
+        let Some(token) = self.peek() else {
+            return Ok(());
+        };
+
+        if !is_expr_start(token) {
+            return Ok(());
+        }
+
+        // A new expression on another line is more likely the beginning of the
+        // next statement. Let `expect_semicolon` report the missing terminator.
+        if token.span.line != left.line {
+            return Ok(());
+        }
+
+        let right = self.parse_expr()?;
+
+        Err(MissingOperatorError {
+            left_span: left.into(),
+            right_span: right.span().into(),
+            src: self.source_file.clone(),
+        }
+        .into())
     }
 
     /// Parses an [`Expr`] using Pratt parsing.
@@ -757,32 +803,102 @@ pub(crate) mod tests {
         assert!(!is_primary_expr_start(TokenKind::OpenBrace));
     }
 
-    #[test]
-    fn reports_missing_comma_between_arguments() {
-        let error = parse_expression_error("foo(1 true)");
+    #[rstest]
+    #[case("foo()")]
+    #[case("foo(1)")]
+    #[case("foo(1, true)")]
+    #[case("foo(value, other)")]
+    #[case("foo(bar(), baz())")]
+    #[case("foo((1 + 2), -value)")]
+    #[case("foo(1, bar(2, 3), true)")]
+    fn parses_valid_argument_lists(#[case] source: &str) {
+        parse_expression(source);
+    }
+
+    #[rstest]
+    #[case("foo(1 true)")]
+    #[case("foo(1 value)")]
+    #[case("foo(true false)")]
+    #[case("foo(value other)")]
+    #[case("foo(1 bar())")]
+    #[case("foo(bar() baz())")]
+    #[case("foo((1 + 2) value)")]
+    fn reports_missing_comma_between_arguments(#[case] source: &str) {
+        let error = parse_expression_error(source);
 
         let ParserError::ExpectedToken(error) = error else {
-            panic!("expected a missing-comma error, got: {error}");
+            panic!(
+                "expected ExpectedTokenError for missing comma in `{source}`, \
+                 got: {error:?}"
+            );
         };
 
-        assert_eq!(error.expected, TokenKind::Comma);
+        assert_eq!(
+            error.expected,
+            TokenKind::Comma,
+            "expected a comma to be required in `{source}`"
+        );
     }
 
-    #[test]
-    fn reports_error_on_trailing_comma() {
-        let error = parse_expression_error("foo(1, )");
+    #[rstest]
+    #[case("foo(1, )")]
+    #[case("foo(true, )")]
+    #[case("foo(value, )")]
+    #[case("foo(bar(), )")]
+    #[case("foo((1 + 2), )")]
+    #[case("foo(1, 2, )")]
+    fn reports_missing_expression_after_trailing_comma(#[case] source: &str) {
+        let error = parse_expression_error(source);
 
-        let ParserError::ExpectedExpression(_) = error else {
-            panic!("expected missing expression error after trailing comma, got: {error:?}");
-        };
+        assert!(
+            matches!(error, ParserError::ExpectedExpression(_)),
+            "expected ExpectedExpressionError after trailing comma in `{source}`, \
+         got: {error:?}"
+        );
     }
 
-    #[test]
-    fn reports_error_on_dangling_comma_at_eof() {
-        let error = parse_expression_error("foo(1,");
+    #[rstest]
+    #[case("foo(1,")]
+    #[case("foo(true,")]
+    #[case("foo(value,")]
+    #[case("foo(bar(),")]
+    #[case("foo(1, 2,")]
+    fn reports_unexpected_eof_after_dangling_comma(#[case] source: &str) {
+        let error = parse_expression_error(source);
 
-        let ParserError::UnexpectedEof(_) = error else {
-            panic!("expected unexpected EOF error, got: {error:?}");
-        };
+        assert!(
+            matches!(error, ParserError::UnexpectedEof(_)),
+            "expected UnexpectedEofError after dangling comma in `{source}`, \
+         got: {error:?}"
+        );
+    }
+
+    #[rstest]
+    #[case("foo(,")]
+    #[case("foo(, 1)")]
+    #[case("foo(, true)")]
+    #[case("foo(, value)")]
+    fn reports_missing_expression_before_first_argument(#[case] source: &str) {
+        let error = parse_expression_error(source);
+
+        assert!(
+            matches!(error, ParserError::ExpectedExpression(_)),
+            "expected ExpectedExpressionError for missing first argument in `{source}`, \
+         got: {error:?}"
+        );
+    }
+
+    #[rstest]
+    #[case("foo(1,, 2)")]
+    #[case("foo(value,, other)")]
+    #[case("foo(bar(),, baz())")]
+    fn reports_missing_expression_between_commas(#[case] source: &str) {
+        let error = parse_expression_error(source);
+
+        assert!(
+            matches!(error, ParserError::ExpectedExpression(_)),
+            "expected ExpectedExpressionError between commas in `{source}`, \
+         got: {error:?}"
+        );
     }
 }

@@ -226,6 +226,10 @@ pub enum ParserError {
     #[error(transparent)]
     #[diagnostic(transparent)]
     InvalidExpressionStatement(#[from] InvalidExpressionStatementError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    MissingOperator(#[from] MissingOperatorError),
 }
 
 #[derive(Error, Debug, Diagnostic)]
@@ -351,6 +355,23 @@ pub struct InvalidExpressionStatementError {
 
     #[source_code]
     pub src: SourceFile,
+}
+
+#[derive(Debug, Diagnostic, Error)]
+#[error("missing operator between expressions")]
+#[diagnostic(
+    code(nox::parser::missing_operator),
+    help("use an operator (like `*`, `+`, etc.) between these values.")
+)]
+pub struct MissingOperatorError {
+    #[source_code]
+    pub src: SourceFile,
+
+    #[label("this expression...")]
+    pub left_span: SourceSpan, // Or miette::SourceSpan depending on your setup
+
+    #[label("...is followed directly by this, but needs an operator between them")]
+    pub right_span: SourceSpan,
 }
 
 #[cfg(test)]

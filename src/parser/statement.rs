@@ -31,6 +31,9 @@ impl<'a> Parser<'a> {
         let expr = self.parse_expr()?;
         let span = expr.span();
 
+        self.ensure_no_adjacent_expression(expr.span())?;
+        self.expect_semicolon()?;
+
         if !expr.is_valid_expr_statement() {
             return Err(InvalidExpressionStatementError {
                 at: span.into(),
@@ -38,8 +41,6 @@ impl<'a> Parser<'a> {
             }
             .into());
         }
-
-        self.expect_semicolon()?;
 
         Ok(Stmt::new(StmtKind::ExprStmt { expr }, span))
     }
@@ -51,6 +52,9 @@ impl<'a> Parser<'a> {
         self.expect(TokenKind::Eq)?;
 
         let expr = self.parse_expr()?;
+
+        self.ensure_no_adjacent_expression(expr.span())?;
+
         let semi = self.expect_semicolon()?;
 
         let span = Span::from_bounds(start, semi.span);
@@ -110,6 +114,20 @@ mod tests {
 
     fn parse_statement(source: &str) -> (Stmt, SymbolRegistry) {
         try_parse_statement(source).expect("expected statement to parse")
+    }
+
+    #[rstest]
+    #[case("let x = 5 + 6;")]
+    #[case("let x = foo();")]
+    #[case("let x = foo() + bar();")]
+    #[case("let x = foo()(1);")]
+    #[case("foo();")]
+    #[case("foo(bar(), baz());")]
+    #[case("x = 5;")]
+    fn does_not_report_missing_operator_for_valid_expressions(#[case] source: &str) {
+        try_parse_statement(source).unwrap_or_else(|error| {
+            panic!("expected `{source}` to parse successfully, found: {error:?}")
+        });
     }
 
     #[rstest]
@@ -286,6 +304,87 @@ mod tests {
         assert!(
             matches!(error, ParserError::ExpectedSemicolon(_)),
             "expected ExpectedSemicolonError for `{source}`, found: {error:?}"
+        );
+    }
+
+    #[rstest]
+    #[case("let x = 5 6;")]
+    #[case("let x = value other;")]
+    #[case("let x = foo() bar();")]
+    #[case("let x = (1 + 2) 3;")]
+    #[case("let x = 5 true;")]
+    #[case("let x = -5 value;")]
+    fn reports_missing_operator_between_adjacent_initializer_expressions(#[case] source: &str) {
+        let error = try_parse_statement(source).err().unwrap_or_else(|| {
+            panic!("expected adjacent expressions to be rejected for `{source}`")
+        });
+
+        assert!(
+            matches!(error, ParserError::MissingOperator(_)),
+            "expected MissingOperatorError for `{source}`, found: {error:?}"
+        );
+    }
+
+    #[rstest]
+    #[case("foo() bar();")]
+    #[case("x = 5 6;")]
+    #[case("x = value other;")]
+    #[case("x = foo() bar();")]
+    fn reports_missing_operator_in_expression_statements(#[case] source: &str) {
+        let error = try_parse_statement(source).err().unwrap_or_else(|| {
+            panic!("expected adjacent expressions to be rejected for `{source}`")
+        });
+
+        assert!(
+            matches!(error, ParserError::MissingOperator(_)),
+            "expected MissingOperatorError for `{source}`, found: {error:?}"
+        );
+    }
+
+    #[rstest]
+    #[case("let x = 5\nfoo();")]
+    #[case("let x = value\nother();")]
+    #[case("let x = foo()\nbar();")]
+    #[case("let x = (1 + 2)\nfoo();")]
+    #[case("foo()\nbar();")]
+    #[case("x = 5\nfoo();")]
+    fn reports_missing_semicolon_before_expression_on_next_line(#[case] source: &str) {
+        let error = try_parse_statement(source)
+            .err()
+            .unwrap_or_else(|| panic!("expected a missing semicolon error for `{source}`"));
+
+        assert!(
+            matches!(error, ParserError::ExpectedSemicolon(_)),
+            "expected ExpectedSemicolonError for `{source}`, found: {error:?}"
+        );
+    }
+
+    #[rstest]
+    #[case("let x = 5\n\nfoo();")]
+    #[case("foo()\n\nbar();")]
+    #[case("x = 5\n\n\nfoo();")]
+    fn reports_missing_semicolon_across_blank_lines(#[case] source: &str) {
+        let error = try_parse_statement(source)
+            .err()
+            .unwrap_or_else(|| panic!("expected a missing semicolon error for `{source}`"));
+
+        assert!(
+            matches!(error, ParserError::ExpectedSemicolon(_)),
+            "expected ExpectedSemicolonError for `{source}`, found: {error:?}"
+        );
+    }
+
+    #[rstest]
+    #[case("let x = 5    6;")]
+    #[case("let x = foo()\tbar();")]
+    fn whitespace_does_not_hide_adjacent_expressions(#[case] source: &str) {
+        let error = try_parse_statement(source).err().unwrap_or_else(|| {
+            panic!("expected adjacent expressions to be rejected for `{source}`")
+        });
+
+        assert!(
+            matches!(error, ParserError::MissingOperator(_)),
+            "expected MissingOperatorError for `{source}`, found: {error:?}"
         );
     }
 }
