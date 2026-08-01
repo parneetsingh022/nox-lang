@@ -1,11 +1,11 @@
-use crate::{
-    diagnostic::{ParserError, Span},
-    lexer::{Keyword, Token, TokenKind},
-    parser::{
-        Parser,
-        ast::{Stmt, StmtKind},
-        expression::is_expr_start,
-    },
+use nox_diagnostic::ParserError;
+use nox_source::Span;
+use nox_token::{Keyword, Token, TokenKind};
+
+use crate::parser::{
+    Parser,
+    ast::{Stmt, StmtKind},
+    expression::is_expr_start,
 };
 
 impl<'a> Parser<'a> {
@@ -71,11 +71,11 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nox_token::SymbolRegistry;
     use rstest::rstest;
 
     use crate::{
-        diagnostic::assert_span,
-        lexer::{SymbolRegistry, make_lexer},
+        lexer::make_lexer,
         parser::{
             ast::{BinaryOp, Expr, ExprKind, SpannedIdentifier, UnaryOp},
             expression::tests::{binary, boolean, float, identifier, int, unary},
@@ -249,7 +249,7 @@ mod tests {
         let source = "let result = 42;";
         let (stmt, _) = parse_statement(source);
 
-        assert_span(stmt.span(), Span::single_line(0, source.len(), 1, 1, 17));
+        assert_eq!(stmt.span(), Span::single_line(0, source.len(), 1, 1, 17));
     }
 
     #[test]
@@ -257,7 +257,7 @@ mod tests {
         let source = "\n  let result = 42;";
         let (stmt, _) = parse_statement(source);
 
-        assert_span(stmt.span(), Span::single_line(3, source.len(), 2, 3, 19));
+        assert_eq!(stmt.span(), Span::single_line(3, source.len(), 2, 3, 19));
     }
 
     #[test]
@@ -267,7 +267,7 @@ mod tests {
 
         let (name, _) = as_let(&stmt);
 
-        assert_span(name.span(), Span::single_line(4, 10, 1, 5, 11));
+        assert_eq!(name.span(), Span::single_line(4, 10, 1, 5, 11));
     }
 
     #[test]
@@ -277,7 +277,7 @@ mod tests {
 
         let (name, _) = as_let(&stmt);
 
-        assert_span(name.span(), Span::single_line(7, 16, 2, 7, 16));
+        assert_eq!(name.span(), Span::single_line(7, 16, 2, 7, 16));
     }
 
     #[test]
@@ -288,14 +288,14 @@ mod tests {
         let (name, expr) = as_let(&stmt);
 
         assert_eq!("destination", symbol_registry.resolve(name.symbol()));
-        assert_span(name.span(), Span::single_line(4, 15, 1, 5, 16));
+        assert_eq!(name.span(), Span::single_line(4, 15, 1, 5, 16));
 
         let ExprKind::Identifier(symbol) = expr.kind() else {
             panic!("expected identifier expression, found: {:?}", expr.kind());
         };
 
         assert_eq!("source", symbol_registry.resolve(*symbol));
-        assert_span(expr.span(), Span::single_line(18, 24, 1, 19, 25));
+        assert_eq!(expr.span(), Span::single_line(18, 24, 1, 19, 25));
     }
 
     #[rstest]

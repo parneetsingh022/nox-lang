@@ -2,10 +2,8 @@ use std::{fmt, str::FromStr};
 
 use strum_macros::{Display, EnumString};
 
-use crate::{
-    diagnostic::Span,
-    lexer::{Symbol, SymbolRegistry},
-};
+use crate::{Symbol, SymbolRegistry};
+use nox_source::Span;
 
 #[derive(Debug, Display, Clone, Copy, Eq, PartialEq, EnumString)]
 #[strum(serialize_all = "snake_case")]

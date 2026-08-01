@@ -1,13 +1,8 @@
-pub mod symbol_registry;
-pub mod token;
-pub use self::{
-    symbol_registry::{Symbol, SymbolRegistry},
-    token::{Keyword, Token, TokenKind},
-};
-
 use miette::SourceSpan;
 
-use crate::diagnostic::{LexerError, SourceFile, Span};
+use nox_diagnostic::LexerError;
+use nox_source::{SourceFile, Span};
+use nox_token::{SymbolRegistry, Token, TokenKind};
 
 #[cfg(test)]
 pub fn make_lexer(code: &str) -> (Lexer, SourceFile) {
@@ -539,7 +534,7 @@ mod tests {
     use super::*;
     use rstest::rstest;
 
-    use crate::lexer::Keyword;
+    use nox_token::Keyword;
 
     macro_rules! assert_token {
         // Case 1: Tokens with data (Identifier, IntLiteral, etc.)

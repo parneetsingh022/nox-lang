@@ -264,15 +264,44 @@ dependencies = [
 ]
 
 [[package]]
+name = "nox-diagnostic"
+version = "0.1.0"
+dependencies = [
+ "miette",
+ "nox-source",
+ "nox-token",
+ "thiserror",
+]
+
+[[package]]
 name = "nox-lang"
 version = "0.1.0"
 dependencies = [
  "insta",
  "miette",
+ "nox-diagnostic",
+ "nox-source",
+ "nox-token",
  "rstest",
  "strum",
  "strum_macros",
  "thiserror",
+]
+
+[[package]]
+name = "nox-source"
+version = "0.1.0"
+dependencies = [
+ "miette",
+]
+
+[[package]]
+name = "nox-token"
+version = "0.1.0"
+dependencies = [
+ "nox-source",
+ "strum",
+ "strum_macros",
 ]
 
 [[package]]

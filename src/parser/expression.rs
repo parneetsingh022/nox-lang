@@ -1,10 +1,10 @@
-use crate::{
-    diagnostic::{ParserError, Span},
-    lexer::{Keyword, Symbol, Token, TokenKind},
-    parser::{
-        Parser,
-        ast::{BinaryOp, Expr, ExprKind, UnaryOp},
-    },
+use nox_diagnostic::ParserError;
+use nox_source::Span;
+use nox_token::{Keyword, Symbol, Token, TokenKind};
+
+use crate::parser::{
+    Parser,
+    ast::{BinaryOp, Expr, ExprKind, UnaryOp},
 };
 
 /// Determines whether a given [`TokenKind`] represents a valid unary (prefix) operator.

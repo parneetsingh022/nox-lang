@@ -1,3 +1,23 @@
+[workspace]
+members = [
+    ".",
+    "crates/nox-diagnostic", "crates/nox-source", "crates/nox-token",
+]
+resolver = "3"
+
+[workspace.dependencies]
+miette = { version = "7.6.0", features = ["fancy"] }
+strum = "0.28.0"
+strum_macros = "0.28.0"
+thiserror = "2.0.18"
+
+insta = "1.48.0"
+rstest = "0.26.1"
+
+nox-diagnostic = { path = "crates/nox-diagnostic" }
+nox-source = { path = "crates/nox-source" }
+nox-token = { path = "crates/nox-token" }
+
 [package]
 name = "nox-lang"
 version = "0.1.0"
@@ -13,11 +33,14 @@ strip = true
 codegen-units = 1
 
 [dependencies]
-miette = { version = "7.6.0", features = ["fancy"] }
-strum = "0.28.0"
-strum_macros = "0.28.0"
-thiserror = "2.0.18"
+miette.workspace = true
+strum.workspace = true
+strum_macros.workspace = true
+thiserror.workspace = true
+nox-diagnostic.workspace = true
+nox-source.workspace = true
+nox-token.workspace = true
 
 [dev-dependencies]
-insta = "1.48.0"
-rstest = "0.26.1"
+insta.workspace = true
+rstest.workspace = true

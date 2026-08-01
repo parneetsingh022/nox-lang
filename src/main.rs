@@ -1,8 +1,11 @@
 use std::{env, fs, process};
 
+use nox_diagnostic::ParserError;
+use nox_source::SourceFile;
+use nox_token::Token;
+
 use nox_lang::{
-    diagnostic::{ParserError, SourceFile},
-    lexer::{Lexer, Token},
+    lexer::Lexer,
     parser::{Parser, ast::Stmt},
 };
 
