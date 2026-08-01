@@ -1,6 +1,6 @@
-use nox_diagnostic::ParserError;
-use nox_source::Span;
-use nox_token::{Keyword, Token, TokenKind};
+use nyx_diagnostic::ParserError;
+use nyx_source::Span;
+use nyx_token::{Keyword, Token, TokenKind};
 
 use crate::parser::{
     Parser,
@@ -71,7 +71,7 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nox_token::SymbolRegistry;
+    use nyx_token::SymbolRegistry;
     use rstest::rstest;
 
     use crate::{

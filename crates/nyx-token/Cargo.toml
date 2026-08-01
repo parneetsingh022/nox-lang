@@ -1,5 +1,5 @@
 [package]
-name = "nox-token"
+name = "nyx-token"
 version = "0.1.0"
 edition = "2024"
 publish = false
@@ -7,4 +7,5 @@ publish = false
 [dependencies]
 strum.workspace = true
 strum_macros.workspace = true
-nox-source.workspace = true
+nyx-source.workspace = true
+

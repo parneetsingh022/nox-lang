@@ -264,24 +264,24 @@ dependencies = [
 ]
 
 [[package]]
-name = "nox-diagnostic"
+name = "nyx-diagnostic"
 version = "0.1.0"
 dependencies = [
  "miette",
- "nox-source",
- "nox-token",
+ "nyx-source",
+ "nyx-token",
  "thiserror",
 ]
 
 [[package]]
-name = "nox-lang"
+name = "nyx-lang"
 version = "0.1.0"
 dependencies = [
  "insta",
  "miette",
- "nox-diagnostic",
- "nox-source",
- "nox-token",
+ "nyx-diagnostic",
+ "nyx-source",
+ "nyx-token",
  "rstest",
  "strum",
  "strum_macros",
@@ -289,17 +289,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "nox-source"
+name = "nyx-source"
 version = "0.1.0"
 dependencies = [
  "miette",
 ]
 
 [[package]]
-name = "nox-token"
+name = "nyx-token"
 version = "0.1.0"
 dependencies = [
- "nox-source",
+ "nyx-source",
  "strum",
  "strum_macros",
 ]

@@ -1,2 +1,3 @@
-# nox-lang
+# nyx-lang
 Hobby programming language
+

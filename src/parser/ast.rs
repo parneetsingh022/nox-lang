@@ -1,4 +1,4 @@
-//! Abstract Syntax Tree (AST) definitions for the Nox programming language.
+//! Abstract Syntax Tree (AST) definitions for the nyx programming language.
 //!
 //! This module defines the core data structures that represent parsed source code
 //! produced by the parser.
@@ -22,8 +22,8 @@
 
 use std::fmt;
 
-use nox_source::Span;
-use nox_token::{Symbol, SymbolRegistry, Token, TokenKind};
+use nyx_source::Span;
+use nyx_token::{Symbol, SymbolRegistry, Token, TokenKind};
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]

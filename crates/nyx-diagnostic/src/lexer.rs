@@ -1,12 +1,12 @@
 use miette::SourceSpan;
 
-use nox_source::SourceFile;
+use nyx_source::SourceFile;
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum LexerError {
     #[error("unexpected character `{char}`")]
     #[diagnostic(
-        code(nox::lexer::unexpected_char),
+        code(nyx::lexer::unexpected_char),
         help("remove the character or replace it with valid syntax")
     )]
     UnexpectedChar {
@@ -21,7 +21,7 @@ pub enum LexerError {
 
     #[error("incomplete floating-point literal")]
     #[diagnostic(
-        code(nox::lexer::incomplete_float),
+        code(nyx::lexer::incomplete_float),
         help("add a fractional component to the floating-point literal")
     )]
     IncompleteFloat {
@@ -39,7 +39,7 @@ pub enum LexerError {
 
     #[error("invalid numeric literal")]
     #[diagnostic(
-        code(nox::lexer::invalid_numeric_suffix),
+        code(nyx::lexer::invalid_numeric_suffix),
         help("add whitespace or an operator between the number and the identifier")
     )]
     InvalidNumericSuffix {
@@ -52,7 +52,7 @@ pub enum LexerError {
 
     #[error("unterminated multi-line comment")]
     #[diagnostic(
-        code(nox::lexer::unterminated_comment),
+        code(nyx::lexer::unterminated_comment),
         help("close the comment with `*/`")
     )]
     UnterminatedComment {

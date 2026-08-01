@@ -1,10 +1,10 @@
 use miette::{Diagnostic, GraphicalReportHandler, GraphicalTheme};
-use nox_source::SourceFile;
+use nyx_source::SourceFile;
 
-use nox_lang::lexer::Lexer;
+use nyx_lang::lexer::Lexer;
 
 pub fn make_lexer(code: &str) -> (Lexer, SourceFile) {
-    let source_file: SourceFile = SourceFile::new("main.nox", code);
+    let source_file: SourceFile = SourceFile::new("main.nyx", code);
     (Lexer::new(source_file.clone()), source_file)
 }
 

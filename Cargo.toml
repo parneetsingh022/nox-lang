@@ -1,7 +1,7 @@
 [workspace]
 members = [
     ".",
-    "crates/nox-diagnostic", "crates/nox-source", "crates/nox-token",
+    "crates/nyx-diagnostic", "crates/nyx-source", "crates/nyx-token",
 ]
 resolver = "3"
 
@@ -14,17 +14,17 @@ thiserror = "2.0.18"
 insta = "1.48.0"
 rstest = "0.26.1"
 
-nox-diagnostic = { path = "crates/nox-diagnostic" }
-nox-source = { path = "crates/nox-source" }
-nox-token = { path = "crates/nox-token" }
+nyx-diagnostic = { path = "crates/nyx-diagnostic" }
+nyx-source = { path = "crates/nyx-source" }
+nyx-token = { path = "crates/nyx-token" }
 
 [package]
-name = "nox-lang"
+name = "nyx-lang"
 version = "0.1.0"
 edition = "2024"
 
 [[bin]]
-name = "nox"
+name = "nyx"
 path = "src/main.rs"
 
 [profile.release]
@@ -37,10 +37,11 @@ miette.workspace = true
 strum.workspace = true
 strum_macros.workspace = true
 thiserror.workspace = true
-nox-diagnostic.workspace = true
-nox-source.workspace = true
-nox-token.workspace = true
+nyx-diagnostic.workspace = true
+nyx-source.workspace = true
+nyx-token.workspace = true
 
 [dev-dependencies]
 insta.workspace = true
 rstest.workspace = true
+

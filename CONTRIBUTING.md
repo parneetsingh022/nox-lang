@@ -1,6 +1,6 @@
 # Contributing
 
-Thank you for your interest in contributing to **Nox**.
+Thank you for your interest in contributing to **nyx**.
 
 Contributions of all sizes are welcome, including bug fixes, tests, documentation, diagnostics, parser improvements, language-design discussions, and developer tooling.
 
@@ -30,8 +30,8 @@ rustup component add rustfmt clippy
 Clone the repository and enter the project directory:
 
 ```bash
-git clone https://github.com/parneetsingh022/nox-lang.git
-cd nox-lang
+git clone https://github.com/parneetsingh022/nyx-lang.git
+cd nyx-lang
 ```
 
 Build the project:
@@ -202,7 +202,7 @@ Draft pull requests are welcome for early feedback.
 
 When reporting a bug, include:
 
-- The Nox source input
+- The nyx source input
 - The expected behavior
 - The actual behavior
 - Relevant diagnostics or terminal output
@@ -287,3 +287,4 @@ All contributors must follow the project [Code of Conduct](CODE_OF_CONDUCT.md).
 ## License
 
 By contributing, you agree that your contributions will be licensed under the same license as the project.
+

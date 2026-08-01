@@ -3,7 +3,7 @@ use std::{fmt, str::FromStr};
 use strum_macros::{Display, EnumString};
 
 use crate::{Symbol, SymbolRegistry};
-use nox_source::Span;
+use nyx_source::Span;
 
 #[derive(Debug, Display, Clone, Copy, Eq, PartialEq, EnumString)]
 #[strum(serialize_all = "snake_case")]

@@ -1,6 +1,6 @@
-use nox_diagnostic::ParserError;
-use nox_source::Span;
-use nox_token::{Keyword, Symbol, Token, TokenKind};
+use nyx_diagnostic::ParserError;
+use nyx_source::Span;
+use nyx_token::{Keyword, Symbol, Token, TokenKind};
 
 use crate::parser::{
     Parser,
