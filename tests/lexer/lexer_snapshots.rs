@@ -1,5 +1,5 @@
 use crate::common::make_lexer;
-use nox_token::TokenKind;
+use nyx_token::TokenKind;
 
 fn snapshot_tokens(source: &str) -> String {
     let (mut lexer, _) = make_lexer(source);

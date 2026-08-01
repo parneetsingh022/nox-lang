@@ -1,5 +1,5 @@
 use crate::common::{make_lexer, render_diagnostic};
-use nox_lang::parser::Parser;
+use nyx_lang::parser::Parser;
 
 fn snapshot_parser_errors(source: &str) -> String {
     let (mut lexer, source_file) = make_lexer(source);

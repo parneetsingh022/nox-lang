@@ -1,13 +1,13 @@
 use miette::SourceSpan;
 
-use nox_source::SourceFile;
-use nox_token::TokenKind;
+use nyx_source::SourceFile;
+use nyx_token::TokenKind;
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum ParserError {
     #[error("unexpected end of file")]
     #[diagnostic(
-        code(nox::parser::unexpected_eof),
+        code(nyx::parser::unexpected_eof),
         help("check for unclosed delimiters, incomplete expressions, or trailing operators")
     )]
     UnexpectedEof {
@@ -20,7 +20,7 @@ pub enum ParserError {
 
     #[error("expected `{expected}`, found `{found}`")]
     #[diagnostic(
-        code(nox::parser::expected_token),
+        code(nyx::parser::expected_token),
         help("insert the missing token or remove the unexpected one")
     )]
     ExpectedToken {
@@ -36,7 +36,7 @@ pub enum ParserError {
 
     #[error("expected an identifier, found `{found}`")]
     #[diagnostic(
-        code(nox::parser::expected_identifier),
+        code(nyx::parser::expected_identifier),
         help("provide a valid identifier")
     )]
     ExpectedIdentifier {
@@ -51,7 +51,7 @@ pub enum ParserError {
 
     #[error("expected an expression, found `{found}`")]
     #[diagnostic(
-        code(nox::parser::expected_expression),
+        code(nyx::parser::expected_expression),
         help("remove the unexpected token or provide the missing expression")
     )]
     ExpectedExpression {
@@ -66,7 +66,7 @@ pub enum ParserError {
 
     #[error("expected a statement, found `{found}`")]
     #[diagnostic(
-        code(nox::parser::expected_statement),
+        code(nyx::parser::expected_statement),
         help("remove the unexpected token or begin a valid statement")
     )]
     ExpectedStatement {
@@ -81,7 +81,7 @@ pub enum ParserError {
 
     #[error("expected ';'")]
     #[diagnostic(
-        code(nox::parser::expected_semicolon),
+        code(nyx::parser::expected_semicolon),
         help("add a semicolon `;` to terminate the statement")
     )]
     ExpectedSemicolon {
@@ -94,7 +94,7 @@ pub enum ParserError {
 
     #[error("unclosed delimiter")]
     #[diagnostic(
-        code(nox::parser::unclosed_delimiter),
+        code(nyx::parser::unclosed_delimiter),
         help("insert a `{expected}` to close this group")
     )]
     UnclosedDelimiter {
@@ -109,7 +109,7 @@ pub enum ParserError {
 
     #[error("missing operator between expressions")]
     #[diagnostic(
-        code(nox::parser::missing_operator),
+        code(nyx::parser::missing_operator),
         help("use an operator (like `*`, `+`, etc.) between these values.")
     )]
     MissingOperator {
@@ -127,7 +127,7 @@ pub enum ParserError {
     /// is not meaningful when ignored.
     #[error("expression result is unused")]
     #[diagnostic(
-        code(nox::parser::invalid_expression_statement),
+        code(nyx::parser::invalid_expression_statement),
         help("use the expression as part of another expression, assign its result, or remove it")
     )]
     InvalidExpressionStatement {

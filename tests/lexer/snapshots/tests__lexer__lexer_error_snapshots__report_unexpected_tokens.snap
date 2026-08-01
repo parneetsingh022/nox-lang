@@ -2,42 +2,43 @@
 source: tests/lexer/lexer_error_snapshots.rs
 expression: "snapshot_lexer_errors(\"unexpected 😀 error Ñ你 好\")"
 ---
-nox::lexer::unexpected_char
+nyx::lexer::unexpected_char
 
   × unexpected character `😀`
-   ╭─[main.nox:1:12]
+   ╭─[main.nyx:1:12]
  1 │ unexpected 😀 error Ñ你 好
    ·            ─┬
    ·             ╰── this character is not recognized
    ╰────
   help: remove the character or replace it with valid syntax
 
-nox::lexer::unexpected_char
+nyx::lexer::unexpected_char
 
   × unexpected character `Ñ`
-   ╭─[main.nox:1:23]
+   ╭─[main.nyx:1:23]
  1 │ unexpected 😀 error Ñ你 好
    ·                     ┬
    ·                     ╰── this character is not recognized
    ╰────
   help: remove the character or replace it with valid syntax
 
-nox::lexer::unexpected_char
+nyx::lexer::unexpected_char
 
   × unexpected character `你`
-   ╭─[main.nox:1:25]
+   ╭─[main.nyx:1:25]
  1 │ unexpected 😀 error Ñ你 好
    ·                      ─┬
    ·                       ╰── this character is not recognized
    ╰────
   help: remove the character or replace it with valid syntax
 
-nox::lexer::unexpected_char
+nyx::lexer::unexpected_char
 
   × unexpected character `好`
-   ╭─[main.nox:1:29]
+   ╭─[main.nyx:1:29]
  1 │ unexpected 😀 error Ñ你 好
    ·                         ─┬
    ·                          ╰── this character is not recognized
    ╰────
   help: remove the character or replace it with valid syntax
+

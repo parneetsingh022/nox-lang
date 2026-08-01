@@ -2,10 +2,10 @@
 source: tests/lexer/lexer_error_snapshots.rs
 expression: snapshot_lexer_errors(source)
 ---
-nox::lexer::incomplete_float
+nyx::lexer::incomplete_float
 
   × incomplete floating-point literal
-   ╭─[main.nox:2:1]
+   ╭─[main.nyx:2:1]
  1 │ 
  2 │ 123.
    · ──┬─┬
@@ -15,10 +15,10 @@ nox::lexer::incomplete_float
    ╰────
   help: add a fractional component to the floating-point literal
 
-nox::lexer::incomplete_float
+nyx::lexer::incomplete_float
 
   × incomplete floating-point literal
-   ╭─[main.nox:3:1]
+   ╭─[main.nyx:3:1]
  2 │ 123.
  3 │ 294.abc
    · ──┬─┬
@@ -28,13 +28,14 @@ nox::lexer::incomplete_float
    ╰────
   help: add a fractional component to the floating-point literal
 
-nox::lexer::invalid_numeric_suffix
+nyx::lexer::invalid_numeric_suffix
 
   × invalid numeric literal
-   ╭─[main.nox:4:1]
+   ╭─[main.nyx:4:1]
  3 │ 294.abc
  4 │ 343abc
    · ───┬──
    ·    ╰── a number cannot be directly followed by identifier characters
    ╰────
   help: add whitespace or an operator between the number and the identifier
+

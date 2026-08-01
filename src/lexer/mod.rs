@@ -1,12 +1,12 @@
 use miette::SourceSpan;
 
-use nox_diagnostic::LexerError;
-use nox_source::{SourceFile, Span};
-use nox_token::{SymbolRegistry, Token, TokenKind};
+use nyx_diagnostic::LexerError;
+use nyx_source::{SourceFile, Span};
+use nyx_token::{SymbolRegistry, Token, TokenKind};
 
 #[cfg(test)]
 pub fn make_lexer(code: &str) -> (Lexer, SourceFile) {
-    let source_file: SourceFile = SourceFile::new("main.nox", code);
+    let source_file: SourceFile = SourceFile::new("main.nyx", code);
     (Lexer::new(source_file.clone()), source_file)
 }
 
@@ -534,7 +534,7 @@ mod tests {
     use super::*;
     use rstest::rstest;
 
-    use nox_token::Keyword;
+    use nyx_token::Keyword;
 
     macro_rules! assert_token {
         // Case 1: Tokens with data (Identifier, IntLiteral, etc.)

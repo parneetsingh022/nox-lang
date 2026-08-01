@@ -4,9 +4,9 @@ pub mod ast;
 pub mod expression;
 pub mod statement;
 
-use nox_diagnostic::ParserError;
-use nox_source::{SourceFile, Span};
-use nox_token::{SymbolRegistry, Token, TokenKind};
+use nyx_diagnostic::ParserError;
+use nyx_source::{SourceFile, Span};
+use nyx_token::{SymbolRegistry, Token, TokenKind};
 
 use crate::parser::ast::{SpannedIdentifier, Stmt};
 
