@@ -4,11 +4,11 @@ pub mod ast;
 pub mod expression;
 pub mod statement;
 
-use crate::{
-    diagnostic::{ParserError, SourceFile, Span},
-    lexer::{SymbolRegistry, Token, TokenKind},
-    parser::ast::{SpannedIdentifier, Stmt},
-};
+use nox_diagnostic::ParserError;
+use nox_source::{SourceFile, Span};
+use nox_token::{SymbolRegistry, Token, TokenKind};
+
+use crate::parser::ast::{SpannedIdentifier, Stmt};
 
 /// Parses a stream of lexical tokens into an abstract syntax tree (AST).
 pub struct Parser<'a> {

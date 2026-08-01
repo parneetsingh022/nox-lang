@@ -1,6 +1,6 @@
 use miette::SourceSpan;
 
-use crate::diagnostic::SourceFile;
+use nox_source::SourceFile;
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum LexerError {

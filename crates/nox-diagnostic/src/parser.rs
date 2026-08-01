@@ -1,6 +1,7 @@
 use miette::SourceSpan;
 
-use crate::{diagnostic::SourceFile, lexer::TokenKind};
+use nox_source::SourceFile;
+use nox_token::TokenKind;
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum ParserError {

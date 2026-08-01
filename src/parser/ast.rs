@@ -22,10 +22,8 @@
 
 use std::fmt;
 
-use crate::{
-    diagnostic::Span,
-    lexer::{Symbol, SymbolRegistry, Token, TokenKind},
-};
+use nox_source::Span;
+use nox_token::{Symbol, SymbolRegistry, Token, TokenKind};
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]

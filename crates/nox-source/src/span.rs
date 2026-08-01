@@ -87,28 +87,3 @@ impl From<Span> for SourceSpan {
         Self::new(offset.into(), length)
     }
 }
-
-#[cfg(test)]
-pub fn assert_span(actual: Span, expected: Span) {
-    assert_eq!(
-        actual,
-        expected,
-        concat!(
-            "unexpected span: ",
-            "expected bytes {}..{} from {}:{} to {}:{}, ",
-            "found bytes {}..{} from {}:{} to {}:{}"
-        ),
-        expected.start,
-        expected.end,
-        expected.start_line,
-        expected.start_column,
-        expected.end_line,
-        expected.end_column,
-        actual.start,
-        actual.end,
-        actual.start_line,
-        actual.start_column,
-        actual.end_line,
-        actual.end_column,
-    );
-}

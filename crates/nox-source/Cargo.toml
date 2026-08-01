@@ -1,0 +1,8 @@
+[package]
+name = "nox-source"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+miette.workspace = true

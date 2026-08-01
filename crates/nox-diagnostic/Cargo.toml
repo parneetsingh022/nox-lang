@@ -1,0 +1,11 @@
+[package]
+name = "nox-diagnostic"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+miette.workspace = true
+thiserror.workspace = true
+nox-source.workspace = true
+nox-token.workspace = true

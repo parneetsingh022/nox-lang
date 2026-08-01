@@ -1,6 +1,7 @@
 use miette::{Diagnostic, GraphicalReportHandler, GraphicalTheme};
+use nox_source::SourceFile;
 
-use nox_lang::{diagnostic::SourceFile, lexer::Lexer};
+use nox_lang::lexer::Lexer;
 
 pub fn make_lexer(code: &str) -> (Lexer, SourceFile) {
     let source_file: SourceFile = SourceFile::new("main.nox", code);

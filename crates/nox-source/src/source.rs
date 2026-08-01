@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use miette::{MietteError, NamedSource, SourceCode, SourceSpan, SpanContents};
 
-use crate::diagnostic::Span;
+use crate::Span;
 
 /// Shared source text used by the lexer, parser, and diagnostics.
 ///
