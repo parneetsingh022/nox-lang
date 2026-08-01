@@ -71,16 +71,21 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nyx_lexer::Lexer;
+    use nyx_source::SourceFile;
     use nyx_token::SymbolRegistry;
     use rstest::rstest;
 
-    use crate::{
-        lexer::make_lexer,
-        parser::{
-            ast::{BinaryOp, Expr, ExprKind, SpannedIdentifier, UnaryOp},
-            expression::tests::{binary, boolean, float, identifier, int, unary},
-        },
+    use crate::parser::{
+        ast::{BinaryOp, Expr, ExprKind, SpannedIdentifier, UnaryOp},
+        expression::tests::{binary, boolean, float, identifier, int, unary},
     };
+
+    #[cfg(test)]
+    pub fn make_lexer(code: &str) -> (Lexer, SourceFile) {
+        let source_file: SourceFile = SourceFile::new("main.nyx", code);
+        (Lexer::new(source_file.clone()), source_file)
+    }
 
     /// This assumes a statement to have [`StatementKind::Let`] otherwise
     /// it panics

@@ -1,7 +1,6 @@
 use miette::{Diagnostic, GraphicalReportHandler, GraphicalTheme};
+use nyx_lexer::Lexer;
 use nyx_source::SourceFile;
-
-use nyx_lang::lexer::Lexer;
 
 pub fn make_lexer(code: &str) -> (Lexer, SourceFile) {
     let source_file: SourceFile = SourceFile::new("main.nyx", code);

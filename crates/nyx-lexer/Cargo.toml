@@ -1,0 +1,14 @@
+[package]
+name = "nyx-lexer"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+miette.workspace = true
+nyx-diagnostic.workspace = true
+nyx-source.workspace = true
+nyx-token.workspace = true
+
+[dev-dependencies]
+rstest.workspace = true

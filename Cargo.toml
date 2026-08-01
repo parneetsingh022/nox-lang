@@ -1,7 +1,10 @@
 [workspace]
 members = [
     ".",
-    "crates/nyx-diagnostic", "crates/nyx-source", "crates/nyx-token",
+    "crates/nyx-diagnostic",
+    "crates/nyx-lexer",
+    "crates/nyx-source",
+    "crates/nyx-token",
 ]
 resolver = "3"
 
@@ -17,6 +20,7 @@ rstest = "0.26.1"
 nyx-diagnostic = { path = "crates/nyx-diagnostic" }
 nyx-source = { path = "crates/nyx-source" }
 nyx-token = { path = "crates/nyx-token" }
+nyx-lexer = { path = "crates/nyx-lexer" }
 
 [package]
 name = "nyx-lang"
@@ -40,8 +44,8 @@ thiserror.workspace = true
 nyx-diagnostic.workspace = true
 nyx-source.workspace = true
 nyx-token.workspace = true
+nyx-lexer.workspace = true
 
 [dev-dependencies]
 insta.workspace = true
 rstest.workspace = true
-
