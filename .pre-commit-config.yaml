@@ -31,7 +31,7 @@ repos:
 
       - id: cargo-test
         name: cargo test
-        entry: cargo test --all-features
+        entry: cargo test --all-features --workspace
         language: system
         pass_filenames: false
         stages: [pre-push]
