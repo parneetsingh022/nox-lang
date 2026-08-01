@@ -280,12 +280,24 @@ dependencies = [
  "insta",
  "miette",
  "nyx-diagnostic",
+ "nyx-lexer",
  "nyx-source",
  "nyx-token",
  "rstest",
  "strum",
  "strum_macros",
  "thiserror",
+]
+
+[[package]]
+name = "nyx-lexer"
+version = "0.1.0"
+dependencies = [
+ "miette",
+ "nyx-diagnostic",
+ "nyx-source",
+ "nyx-token",
+ "rstest",
 ]
 
 [[package]]

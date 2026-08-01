@@ -353,8 +353,15 @@ impl<'a> Parser<'a> {
 pub(crate) mod tests {
 
     use super::*;
-    use crate::lexer::make_lexer;
+    use nyx_lexer::Lexer;
+    use nyx_source::SourceFile;
     use rstest::rstest;
+
+    #[cfg(test)]
+    pub fn make_lexer(code: &str) -> (Lexer, SourceFile) {
+        let source_file: SourceFile = SourceFile::new("main.nyx", code);
+        (Lexer::new(source_file.clone()), source_file)
+    }
 
     pub(crate) fn int(value: i64) -> Expr {
         Expr::new(ExprKind::IntLiteral(value), Span::default())
