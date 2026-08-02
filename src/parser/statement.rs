@@ -193,7 +193,7 @@ mod tests {
         let source = "let result = -(value + 42) * !false;";
         let (stmt, mut symbol_registry) = parse_statement(source);
 
-        let value_symbol = symbol_registry.store("value");
+        let value_symbol = symbol_registry.intern("value");
 
         let expected = binary(
             unary(

@@ -117,7 +117,7 @@ impl TokenKind {
     }
 
     fn intern(registry: &mut SymbolRegistry, value: &str, constructor: fn(Symbol) -> Self) -> Self {
-        let symbol = registry.store(value);
+        let symbol = registry.intern(value);
         constructor(symbol)
     }
 }
