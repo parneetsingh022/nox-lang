@@ -94,8 +94,8 @@ impl<'a> Parser<'a> {
 
         let block_stmt = self.parse_block_stmt()?;
         let mut end = block_stmt.span();
-
         let then_branch = Box::new(block_stmt);
+
         let mut else_branch = None;
 
         // Possible `else` or `else if` branch
