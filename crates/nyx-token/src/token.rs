@@ -41,6 +41,8 @@ impl Token {
 pub enum Keyword {
     Let,
     Const,
+    If,
+    Else,
     True,  // Boolean 'true'
     False, // Boolean 'false'
 }

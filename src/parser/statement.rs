@@ -23,6 +23,7 @@ impl<'a> Parser<'a> {
     fn parse_keyword_stmt(&mut self, token: Token) -> Result<Stmt, ParserError> {
         match token.kind {
             TokenKind::Keyword(Keyword::Let) => self.parse_let_stmt(),
+            TokenKind::Keyword(Keyword::If) => self.parse_if_stmt(),
             TokenKind::Keyword(_) => Err(self.expected_statement_error(token)),
             _ => unreachable!("non-keyword token passed to parse_keyword_stmt"),
         }
@@ -85,6 +86,49 @@ impl<'a> Parser<'a> {
         let span = Span::from_bounds(start, end);
 
         Ok(Stmt::new(StmtKind::Block { stmts }, span))
+    }
+
+    fn parse_if_stmt(&mut self) -> Result<Stmt, ParserError> {
+        let start = self.expect(TokenKind::Keyword(Keyword::If))?.span;
+        let cond = self.parse_expr()?;
+
+        let block_stmt = self.parse_block_stmt()?;
+        let mut end = block_stmt.span();
+
+        let then_branch = Box::new(block_stmt);
+        let mut else_branch = None;
+
+        // Possible `else` or `else if` branch
+        if self.eat(TokenKind::Keyword(Keyword::Else)) {
+            let token = self.peek().ok_or_else(|| self.unexpected_eof_error())?;
+
+            let branch = if token.kind == TokenKind::OpenBrace {
+                self.parse_block_stmt()?
+            } else if token.kind == TokenKind::Keyword(Keyword::If) {
+                self.parse_if_stmt()?
+            } else {
+                return Err(ParserError::ExpectedToken {
+                    expected: TokenKind::OpenBrace,
+                    found: token.kind,
+                    at: token.span.into(),
+                    src: self.source_file.clone(),
+                });
+            };
+
+            end = branch.span();
+            else_branch = Some(Box::new(branch));
+        }
+
+        let span = Span::from_bounds(start, end);
+
+        Ok(Stmt::new(
+            StmtKind::If {
+                cond,
+                then_branch,
+                else_branch,
+            },
+            span,
+        ))
     }
 }
 
@@ -540,6 +584,163 @@ mod tests {
                 ParserError::UnclosedDelimiter { .. } | ParserError::UnexpectedEof { .. }
             ),
             "expected expected closing brace or unexpected EOF for `{source}`, found: {error:?}"
+        );
+    }
+
+    // =========================================================================
+    // If Statement Tests
+    // =========================================================================
+
+    /// Helper to extract the components of an `If` statement, otherwise panics.
+    fn as_if(stmt: &Stmt) -> (&Expr, &Stmt, Option<&Stmt>) {
+        let StmtKind::If {
+            cond,
+            then_branch,
+            else_branch,
+        } = stmt.kind()
+        else {
+            panic!("Expected if statement found: {:?}", stmt);
+        };
+        (cond, then_branch.as_ref(), else_branch.as_deref())
+    }
+
+    #[test]
+    fn parses_simple_if_statement() {
+        let source = "if true { foo(); }";
+        let (stmt, _) = parse_statement(source);
+
+        let (cond, then_branch, else_branch) = as_if(&stmt);
+
+        assert_eq!(cond, &boolean(true), "expected boolean true condition");
+        assert!(else_branch.is_none(), "expected no else branch");
+
+        let then_stmts = as_block(then_branch);
+        assert_eq!(then_stmts.len(), 1, "expected 1 statement in then block");
+        assert!(matches!(then_stmts[0].kind(), StmtKind::ExprStmt { .. }));
+    }
+
+    #[test]
+    fn parses_if_else_statement() {
+        let source = "if true { foo(); } else { bar(); }";
+        let (stmt, _) = parse_statement(source);
+
+        let (_, then_branch, else_branch) = as_if(&stmt);
+
+        let then_stmts = as_block(then_branch);
+        assert_eq!(then_stmts.len(), 1, "expected 1 statement in then block");
+
+        let else_branch = else_branch.expect("expected an else branch");
+        let else_stmts = as_block(else_branch);
+        assert_eq!(else_stmts.len(), 1, "expected 1 statement in else block");
+    }
+
+    #[test]
+    fn parses_if_else_if_chain() {
+        let source = "if x { foo(); } else if y { bar(); }";
+        let (stmt, symbol_registry) = parse_statement(source);
+
+        let (_, then_branch, else_branch) = as_if(&stmt);
+
+        // Verify the `then` branch is a block
+        assert_eq!(as_block(then_branch).len(), 1);
+
+        // Verify the `else` branch is another `if` statement
+        let else_stmt = else_branch.expect("expected an else branch");
+        let (inner_cond, inner_then, inner_else) = as_if(else_stmt);
+
+        let ExprKind::Identifier(sym) = inner_cond.kind() else {
+            panic!("expected identifier in else-if condition");
+        };
+        assert_eq!("y", symbol_registry.resolve(*sym));
+
+        assert_eq!(as_block(inner_then).len(), 1);
+        assert!(inner_else.is_none(), "expected no trailing else branch");
+    }
+
+    #[test]
+    fn parses_if_else_if_else_chain() {
+        let source = "if x { foo(); } else if y { bar(); } else { baz(); }";
+        let (stmt, _) = parse_statement(source);
+
+        let (_, _, else_branch) = as_if(&stmt);
+
+        // Extract the chained `else if`
+        let else_if_stmt = else_branch.expect("expected first else branch");
+        let (_, _, final_else) = as_if(else_if_stmt);
+
+        // Extract the final `else` block
+        let final_else_block = final_else.expect("expected final else branch");
+        assert_eq!(as_block(final_else_block).len(), 1);
+    }
+
+    #[test]
+    fn if_statement_span_covers_basic_if() {
+        let source = "if true { foo(); }";
+        let (stmt, _) = parse_statement(source);
+
+        assert_eq!(stmt.span(), Span::single_line(0, source.len(), 1, 1, 19));
+    }
+
+    #[test]
+    fn if_statement_span_covers_else_branch() {
+        let source = "if true { foo(); } else { bar(); }";
+        let (stmt, _) = parse_statement(source);
+
+        assert_eq!(stmt.span(), Span::single_line(0, source.len(), 1, 1, 35));
+    }
+
+    #[test]
+    fn if_statement_span_covers_long_else_if_chain() {
+        let source = "if a { } else if b { } else if c { } else { }";
+        let (stmt, _) = parse_statement(source);
+
+        // The overall span of the root AST node should encompass the very first 'if'
+        // to the very last '}' in the final else block.
+        assert_eq!(stmt.span(), Span::single_line(0, source.len(), 1, 1, 46));
+    }
+
+    #[rstest]
+    #[case("if true foo();")] // Missing `{` for then branch
+    #[case("if true {} else foo();")] // Missing `{` or `if` for else branch
+    #[case("if true {} else 5;")] // Unexpected expression after else
+    #[case("if true { foo(); ")] // Unclosed then block
+    #[case("if true {} else { foo(); ")] // Unclosed else block
+    #[case("if true {} else")] // EOF right after `else`
+    fn rejects_invalid_if_statements(#[case] source: &str) {
+        let error = try_parse_statement(source)
+            .err()
+            .unwrap_or_else(|| panic!("expected parsing to fail for `{source}`"));
+
+        // We just assert that it produces an error.
+        // We don't strictly match the error type here since it varies
+        // (ExpectedToken, UnexpectedEof, UnclosedDelimiter, etc.)
+        assert!(
+            matches!(
+                error,
+                ParserError::ExpectedToken { .. }
+                    | ParserError::UnexpectedEof { .. }
+                    | ParserError::UnclosedDelimiter { .. }
+                    | ParserError::InvalidExpressionStatement { .. } // depending on how `if {}` fails
+            ),
+            "expected a syntax error for `{source}`, found: {error:?}"
+        );
+    }
+
+    #[test]
+    fn reports_expected_brace_or_if_after_else() {
+        let source = "if true {} else foo();";
+        let error = try_parse_statement(source).err().unwrap();
+
+        assert!(
+            matches!(
+                error,
+                ParserError::ExpectedToken {
+                    expected: TokenKind::OpenBrace,
+                    ..
+                }
+            ),
+            "expected a missing OpenBrace error, found: {:?}",
+            error
         );
     }
 }
