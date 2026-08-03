@@ -298,6 +298,26 @@ pub enum StmtKind {
         /// The inner expression to be evaluated.
         expr: Expr,
     },
+
+    /// A sequence of statements grouped together as a single statement.
+    ///
+    /// Block statements are enclosed in curly braces (`{}`) and
+    /// introduce a new lexical scope.
+    ///
+    /// For example, the statement:
+    ///
+    /// ```text
+    /// {
+    ///     let a = 1;
+    ///     print(a);
+    /// }
+    /// ```
+    ///
+    /// stores the list of enclosed statements in `stmts`.
+    Block {
+        /// The sequence of statements contained within the block.
+        stmts: Vec<Stmt>,
+    },
 }
 
 /// A parsed statement in the abstract syntax tree.
@@ -402,6 +422,14 @@ impl fmt::Debug for StmtDebug<'_> {
                 .debug_struct("ExprStmt")
                 .field("expr", &expr.debug_with(self.reg))
                 .finish(),
+            StmtKind::Block { stmts } => {
+                let debug_stmts: Vec<_> =
+                    stmts.iter().map(|stmt| stmt.debug_with(self.reg)).collect();
+
+                f.debug_struct("Block")
+                    .field("stmts", &debug_stmts)
+                    .finish()
+            }
         }
     }
 }

@@ -14,6 +14,7 @@ impl<'a> Parser<'a> {
 
         match token.kind {
             TokenKind::Keyword(_) => self.parse_keyword_stmt(token),
+            TokenKind::OpenBrace => self.parse_block_stmt(),
             _ if is_expr_start(token) => self.parse_expr_stmt(),
             _ => Err(self.expected_statement_error(token)),
         }
@@ -66,6 +67,25 @@ impl<'a> Parser<'a> {
             span,
         ))
     }
+
+    fn parse_block_stmt(&mut self) -> Result<Stmt, ParserError> {
+        let start = self.expect(TokenKind::OpenBrace)?.span;
+        let mut stmts = Vec::new();
+
+        while let Some(token) = self.peek() {
+            if token.kind == TokenKind::CloseBrace {
+                break;
+            }
+
+            stmts.push(self.parse_stmt()?);
+        }
+
+        let end = self.expect_closing(TokenKind::CloseBrace, start)?.span;
+
+        let span = Span::from_bounds(start, end);
+
+        Ok(Stmt::new(StmtKind::Block { stmts }, span))
+    }
 }
 
 #[cfg(test)]
@@ -90,7 +110,6 @@ mod tests {
     /// This assumes a statement to have [`StatementKind::Let`] otherwise
     /// it panics
     fn as_let(stmt: &Stmt) -> (&SpannedIdentifier, &Expr) {
-        #[allow(irrefutable_let_patterns)]
         let StmtKind::Let { name, expr } = stmt.kind() else {
             panic!("Expected let found : {:?}", stmt);
         };
@@ -406,6 +425,121 @@ mod tests {
         assert!(
             matches!(error, ParserError::MissingOperator { .. }),
             "expected MissingOperatorError for `{source}`, found: {error:?}"
+        );
+    }
+
+    // =========================================================================
+    // Block Statement Tests
+    // =========================================================================
+
+    /// This assumes a statement to have [`StmtKind::Block`] otherwise
+    /// it panics
+    fn as_block(stmt: &Stmt) -> &Vec<Stmt> {
+        let StmtKind::Block { stmts } = stmt.kind() else {
+            panic!("Expected block found: {:?}", stmt);
+        };
+        stmts
+    }
+
+    #[test]
+    fn parses_empty_block() {
+        let source = "{}";
+        let (stmt, _) = parse_statement(source);
+
+        let stmts = as_block(&stmt);
+        assert!(
+            stmts.is_empty(),
+            "expected empty block to contain no statements"
+        );
+    }
+
+    #[test]
+    fn parses_single_statement_block() {
+        let source = "{ let x = 42; }";
+        let (stmt, _) = parse_statement(source);
+
+        let stmts = as_block(&stmt);
+        assert_eq!(stmts.len(), 1, "expected exactly 1 statement in the block");
+        assert!(
+            matches!(stmts[0].kind(), StmtKind::Let { .. }),
+            "expected let statement inside block"
+        );
+    }
+
+    #[test]
+    fn parses_multiple_statements_block() {
+        let source = "{ let x = 42; foo(); x = 10; }";
+        let (stmt, _) = parse_statement(source);
+
+        let stmts = as_block(&stmt);
+        assert_eq!(stmts.len(), 3, "expected exactly 3 statements in the block");
+
+        assert!(matches!(stmts[0].kind(), StmtKind::Let { .. }));
+        assert!(matches!(stmts[1].kind(), StmtKind::ExprStmt { .. }));
+        assert!(matches!(stmts[2].kind(), StmtKind::ExprStmt { .. }));
+    }
+
+    #[test]
+    fn parses_nested_blocks() {
+        let source = "{ { let x = 5; } foo(); }";
+        let (stmt, _) = parse_statement(source);
+
+        let stmts = as_block(&stmt);
+        assert_eq!(stmts.len(), 2, "expected 2 statements in the outer block");
+
+        // Check inner block
+        let inner_block = as_block(&stmts[0]);
+        assert_eq!(
+            inner_block.len(),
+            1,
+            "expected 1 statement in the inner block"
+        );
+        assert!(matches!(inner_block[0].kind(), StmtKind::Let { .. }));
+
+        // Check outer expression statement
+        assert!(matches!(stmts[1].kind(), StmtKind::ExprStmt { .. }));
+    }
+
+    #[test]
+    fn block_span_covers_opening_and_closing_braces() {
+        let source = "{ let x = 5; }";
+        let (stmt, _) = parse_statement(source);
+
+        // Assuming Span::single_line takes (start_byte, end_byte, line, start_col, end_col)
+        assert_eq!(stmt.span(), Span::single_line(0, source.len(), 1, 1, 15));
+    }
+
+    #[test]
+    fn multiline_block_span_is_tracked_correctly() {
+        let source = "{\n    let x = 5;\n}";
+        let (stmt, _) = parse_statement(source);
+
+        let span = stmt.span();
+        assert_eq!(span.start, 0, "Span should start at the opening brace");
+        assert_eq!(
+            span.end,
+            source.len(),
+            "Span should end after the closing brace"
+        );
+    }
+
+    #[rstest]
+    #[case("{")]
+    #[case("{ let x = 5;")]
+    #[case("{ foo(); { let y = 10; }")]
+    fn reports_error_for_unclosed_block(#[case] source: &str) {
+        let error = try_parse_statement(source)
+            .err()
+            .unwrap_or_else(|| panic!("expected unclosed block `{source}` to fail parsing"));
+
+        // Depending on how `expect_closing` works, this might be a specific ExpectedClosing error
+        // or an UnexpectedEof error if it runs out of tokens first.
+        assert!(
+            matches!(
+                error,
+                ParserError::UnclosedDelimiter { .. } | ParserError::UnexpectedEof { .. }
+            ),
+            "expected expected closing brace or unexpected EOF for `{source}`, found: {error:?}"
         );
     }
 }
