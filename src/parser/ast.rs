@@ -316,7 +316,7 @@ pub enum StmtKind {
         cond: Expr,
 
         /// The statement executed if the condition is true.
-        /// Given your language design, this will always be parsed as a `StmtKind::Block`.
+        /// this will always be parsed as a `StmtKind::Block`.
         then_branch: Box<Stmt>,
 
         /// The optional statement executed if the condition is false.
