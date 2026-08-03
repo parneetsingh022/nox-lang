@@ -110,7 +110,6 @@ mod tests {
     /// This assumes a statement to have [`StatementKind::Let`] otherwise
     /// it panics
     fn as_let(stmt: &Stmt) -> (&SpannedIdentifier, &Expr) {
-        #[allow(irrefutable_let_patterns)]
         let StmtKind::Let { name, expr } = stmt.kind() else {
             panic!("Expected let found : {:?}", stmt);
         };
@@ -436,7 +435,6 @@ mod tests {
     /// This assumes a statement to have [`StmtKind::Block`] otherwise
     /// it panics
     fn as_block(stmt: &Stmt) -> &Vec<Stmt> {
-        #[allow(irrefutable_let_patterns)]
         let StmtKind::Block { stmts } = stmt.kind() else {
             panic!("Expected block found: {:?}", stmt);
         };
