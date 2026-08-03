@@ -8,19 +8,14 @@ use crate::parser::{
     expression::is_expr_start,
 };
 
-#[inline]
-fn is_block_start(token: Token) -> bool {
-    token.kind == TokenKind::OpenBrace
-}
-
 impl<'a> Parser<'a> {
     pub fn parse_stmt(&mut self) -> Result<Stmt, ParserError> {
         let token = self.peek().ok_or_else(|| self.unexpected_eof_error())?;
 
         match token.kind {
             TokenKind::Keyword(_) => self.parse_keyword_stmt(token),
+            TokenKind::OpenBrace => self.parse_block_stmt(),
             _ if is_expr_start(token) => self.parse_expr_stmt(),
-            _ if is_block_start(token) => self.parse_block_stmt(),
             _ => Err(self.expected_statement_error(token)),
         }
     }
