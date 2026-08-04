@@ -94,34 +94,12 @@ impl<'a> Parser<'a> {
 
     fn parse_if_stmt(&mut self) -> Result<Stmt, ParserError> {
         let start = self.expect(TokenKind::Keyword(Keyword::If))?.span;
+
         let cond = self.parse_expr()?;
+        let then_branch = Box::new(self.parse_block_stmt()?);
+        let else_branch = self.parse_else_branch()?;
 
-        let block_stmt = self.parse_block_stmt()?;
-        let mut end = block_stmt.span();
-        let then_branch = Box::new(block_stmt);
-
-        let mut else_branch = None;
-
-        // Possible `else` or `else if` branch
-        if self.eat(TokenKind::Keyword(Keyword::Else)) {
-            let token = self.peek().ok_or_else(|| self.unexpected_eof_error())?;
-
-            let branch = if token.kind == TokenKind::OpenBrace {
-                self.parse_block_stmt()?
-            } else if token.kind == TokenKind::Keyword(Keyword::If) {
-                self.parse_if_stmt()?
-            } else {
-                return Err(ParserError::ExpectedToken {
-                    expected: TokenKind::OpenBrace,
-                    found: token.kind,
-                    at: token.span.into(),
-                    src: self.source_file.clone(),
-                });
-            };
-
-            end = branch.span();
-            else_branch = Some(Box::new(branch));
-        }
+        let end = else_branch.as_deref().unwrap_or(&then_branch).span();
 
         let span = Span::from_bounds(start, end);
 
@@ -133,6 +111,34 @@ impl<'a> Parser<'a> {
             },
             span,
         ))
+    }
+
+    fn parse_else_branch(&mut self) -> Result<Option<Box<Stmt>>, ParserError> {
+        if !self.eat(TokenKind::Keyword(Keyword::Else)) {
+            return Ok(None);
+        }
+
+        let Some(token) = self.peek() else {
+            return Err(ParserError::ExpectedElseBranch {
+                found: TokenKind::Eof,
+                at: self.eof_span().into(),
+                src: self.source_file.clone(),
+            });
+        };
+
+        let branch = match token.kind {
+            TokenKind::OpenBrace => self.parse_block_stmt()?,
+            TokenKind::Keyword(Keyword::If) => self.parse_if_stmt()?,
+            found => {
+                return Err(ParserError::ExpectedElseBranch {
+                    found,
+                    at: token.span.into(),
+                    src: self.source_file.clone(),
+                });
+            }
+        };
+
+        Ok(Some(Box::new(branch)))
     }
 }
 
@@ -746,27 +752,50 @@ mod tests {
                 ParserError::ExpectedToken { .. }
                     | ParserError::UnexpectedEof { .. }
                     | ParserError::UnclosedDelimiter { .. }
-                    | ParserError::InvalidExpressionStatement { .. } // depending on how `if {}` fails
+                    | ParserError::InvalidExpressionStatement { .. }
+                    | ParserError::ExpectedElseBranch { .. }
             ),
             "expected a syntax error for `{source}`, found: {error:?}"
         );
     }
 
     #[test]
-    fn reports_expected_brace_or_if_after_else() {
+    fn reports_expected_else_branch_after_else() {
         let source = "if true {} else foo();";
-        let error = try_parse_statement(source).err().unwrap();
+
+        let error = try_parse_statement(source)
+            .err()
+            .unwrap_or_else(|| panic!("expected parsing to fail for `{source}`"));
 
         assert!(
             matches!(
                 error,
-                ParserError::ExpectedToken {
-                    expected: TokenKind::OpenBrace,
+                ParserError::ExpectedElseBranch {
+                    found: TokenKind::Identifier(_),
                     ..
                 }
             ),
-            "expected a missing OpenBrace error, found: {:?}",
-            error
+            "expected ExpectedElseBranch, found: {error:?}"
+        );
+    }
+
+    #[test]
+    fn reports_expected_else_branch_at_end_of_file() {
+        let source = "if true {} else";
+
+        let error = try_parse_statement(source)
+            .err()
+            .unwrap_or_else(|| panic!("expected parsing to fail for `{source}`"));
+
+        assert!(
+            matches!(
+                error,
+                ParserError::ExpectedElseBranch {
+                    found: TokenKind::Eof,
+                    ..
+                }
+            ),
+            "expected ExpectedElseBranch with Eof, found: {error:?}"
         );
     }
 
