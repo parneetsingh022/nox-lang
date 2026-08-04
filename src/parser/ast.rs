@@ -282,6 +282,50 @@ pub enum StmtKind {
         expr: Expr,
     },
 
+    /// A conditional `if` statement with an optional `else` branch.
+    ///
+    /// The `then_branch` represents the block executed if the condition evaluates
+    /// to true. The `else_branch` is used to handle both standard `else` fallbacks
+    /// and chained `else if` conditions.
+    ///
+    /// For a standard `if` statement:
+    ///
+    /// ```text
+    /// if x > 0 {
+    ///     print("positive");
+    /// }
+    /// ```
+    ///
+    /// To support `else if` chaining without requiring a separate AST node type,
+    /// the `else_branch` simply contains another `If` statement. This creates a
+    /// naturally nested recursive structure:
+    ///
+    /// ```text
+    /// if x > 0 {
+    ///     print("positive");
+    /// } else if x < 0 {
+    ///     print("negative");
+    /// } else {
+    ///     print("zero");
+    /// }
+    /// ```
+    ///
+    /// In the example above, the first `If` node's `else_branch` holds the second `If` node.
+    If {
+        /// The boolean condition to evaluate.
+        condition: Expr,
+
+        /// The statement executed if the condition is true.
+        /// this will always be parsed as a `StmtKind::Block`.
+        then_branch: Box<Stmt>,
+
+        /// The optional statement executed if the condition is false.
+        /// - For an `else { ... }`, this contains a `StmtKind::Block`.
+        /// - For an `else if ...`, this contains another `StmtKind::If`.
+        /// - If there is no else branch, this is `None`.
+        else_branch: Option<Box<Stmt>>,
+    },
+
     /// Evaluates an expression as a standalone statement.
     ///
     /// Expression statements allow side-effecting expressions—such as function
@@ -417,6 +461,19 @@ impl fmt::Debug for StmtDebug<'_> {
                 .debug_struct("Let")
                 .field("name", &self.reg.resolve(name.symbol()))
                 .field("expr", &expr.debug_with(self.reg))
+                .finish(),
+            StmtKind::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => f
+                .debug_struct("If")
+                .field("condition", &condition.debug_with(self.reg))
+                .field("then_branch", &then_branch.debug_with(self.reg))
+                .field(
+                    "else_branch",
+                    &else_branch.as_ref().map(|stmt| stmt.debug_with(self.reg)),
+                )
                 .finish(),
             StmtKind::ExprStmt { expr } => f
                 .debug_struct("ExprStmt")

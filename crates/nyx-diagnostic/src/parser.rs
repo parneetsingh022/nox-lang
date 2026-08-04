@@ -137,4 +137,33 @@ pub enum ParserError {
         #[source_code]
         src: SourceFile,
     },
+
+    #[error("expected a block or `if` after `else`, found `{found}`")]
+    #[diagnostic(
+        code(nyx::parser::expected_else_branch),
+        help("follow `else` with either a block or another `if` statement")
+    )]
+    ExpectedElseBranch {
+        found: TokenKind,
+
+        #[label("expected `{{` or `if` here")]
+        at: SourceSpan,
+
+        #[source_code]
+        src: SourceFile,
+    },
+
+    /// Raised when an `else` branch appears without a preceding `if`.
+    #[error("`else` without a matching `if`")]
+    #[diagnostic(
+        code(nyx::parser::else_without_if),
+        help("remove this `else` or place it after an `if` statement")
+    )]
+    ElseWithoutIf {
+        #[label("this `else` has no matching `if`")]
+        at: SourceSpan,
+
+        #[source_code]
+        src: SourceFile,
+    },
 }

@@ -77,6 +77,17 @@ impl<'a> Parser<'a> {
         self.peek().is_some_and(|token| token.kind == kind)
     }
 
+    /// Checks if the next token matches `expected`.
+    /// If it does, consumes the token and returns `true`.
+    fn eat(&mut self, expected: TokenKind) -> bool {
+        if self.check(expected) {
+            self.advance();
+            true
+        } else {
+            false
+        }
+    }
+
     fn expect(&mut self, expected: TokenKind) -> Result<Token, ParserError> {
         match self.peek() {
             Some(token) if token.kind == expected => {
