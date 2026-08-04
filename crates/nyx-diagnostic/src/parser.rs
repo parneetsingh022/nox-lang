@@ -137,4 +137,18 @@ pub enum ParserError {
         #[source_code]
         src: SourceFile,
     },
+
+    /// Raised when an `else` branch appears without a preceding `if`.
+    #[error("`else` without a matching `if`")]
+    #[diagnostic(
+        code(nyx::parser::else_without_if),
+        help("remove this `else` or place it after an `if` statement")
+    )]
+    ElseWithoutIf {
+        #[label("this `else` has no matching `if`")]
+        at: SourceSpan,
+
+        #[source_code]
+        src: SourceFile,
+    },
 }

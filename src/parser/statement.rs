@@ -24,6 +24,10 @@ impl<'a> Parser<'a> {
         match token.kind {
             TokenKind::Keyword(Keyword::Let) => self.parse_let_stmt(),
             TokenKind::Keyword(Keyword::If) => self.parse_if_stmt(),
+            TokenKind::Keyword(Keyword::Else) => Err(ParserError::ElseWithoutIf {
+                at: token.span.into(),
+                src: self.source_file.clone(),
+            }),
             TokenKind::Keyword(_) => Err(self.expected_statement_error(token)),
             _ => unreachable!("non-keyword token passed to parse_keyword_stmt"),
         }
@@ -177,6 +181,28 @@ mod tests {
         parser
             .parse_stmt()
             .map(|statement| (statement, symbol_registry))
+    }
+
+    fn try_parse_all_statements(source: &str) -> Result<Vec<Stmt>, ParserError> {
+        let (mut lexer, source_file) = make_lexer(source);
+
+        let tokens = lexer
+            .by_ref()
+            .collect::<Result<Vec<_>, _>>()
+            .expect("expected lexing to succeed");
+
+        let errors = lexer.take_errors();
+        assert!(errors.is_empty(), "unexpected lexer errors: {errors:#?}");
+
+        let symbol_registry = lexer.take_registry();
+        let mut parser = Parser::new(&tokens, &symbol_registry, source_file);
+        let mut statements = Vec::new();
+
+        while parser.peek().is_some() {
+            statements.push(parser.parse_stmt()?);
+        }
+
+        Ok(statements)
     }
 
     fn parse_statement(source: &str) -> (Stmt, SymbolRegistry) {
@@ -741,6 +767,21 @@ mod tests {
             ),
             "expected a missing OpenBrace error, found: {:?}",
             error
+        );
+    }
+
+    #[rstest]
+    #[case("else { foo(); }")]
+    #[case("else if true { foo(); }")]
+    #[case("if true { foo(); } else { bar(); } else { baz(); }")]
+    #[case("if true { foo(); } else { bar(); } else if false { baz(); }")]
+    fn reports_else_without_matching_if(#[case] source: &str) {
+        let error =
+            try_parse_all_statements(source).expect_err(&format!("expected `{source}` to fail"));
+
+        assert!(
+            matches!(error, ParserError::ElseWithoutIf { .. }),
+            "expected ElseWithoutIf for `{source}`, found: {error:?}"
         );
     }
 }
