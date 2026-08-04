@@ -95,7 +95,7 @@ impl<'a> Parser<'a> {
     fn parse_if_stmt(&mut self) -> Result<Stmt, ParserError> {
         let start = self.expect(TokenKind::Keyword(Keyword::If))?.span;
 
-        let cond = self.parse_expr()?;
+        let condition = self.parse_expr()?;
         let then_branch = Box::new(self.parse_block_stmt()?);
         let else_branch = self.parse_else_branch()?;
 
@@ -105,7 +105,7 @@ impl<'a> Parser<'a> {
 
         Ok(Stmt::new(
             StmtKind::If {
-                cond,
+                condition,
                 then_branch,
                 else_branch,
             },
@@ -626,14 +626,14 @@ mod tests {
     /// Helper to extract the components of an `If` statement, otherwise panics.
     fn as_if(stmt: &Stmt) -> (&Expr, &Stmt, Option<&Stmt>) {
         let StmtKind::If {
-            cond,
+            condition,
             then_branch,
             else_branch,
         } = stmt.kind()
         else {
             panic!("Expected if statement found: {:?}", stmt);
         };
-        (cond, then_branch.as_ref(), else_branch.as_deref())
+        (condition, then_branch.as_ref(), else_branch.as_deref())
     }
 
     #[test]

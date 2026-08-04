@@ -313,7 +313,7 @@ pub enum StmtKind {
     /// In the example above, the first `If` node's `else_branch` holds the second `If` node.
     If {
         /// The boolean condition to evaluate.
-        cond: Expr,
+        condition: Expr,
 
         /// The statement executed if the condition is true.
         /// this will always be parsed as a `StmtKind::Block`.
@@ -463,12 +463,12 @@ impl fmt::Debug for StmtDebug<'_> {
                 .field("expr", &expr.debug_with(self.reg))
                 .finish(),
             StmtKind::If {
-                cond,
+                condition,
                 then_branch,
                 else_branch,
             } => f
                 .debug_struct("If")
-                .field("cond", &cond.debug_with(self.reg))
+                .field("condition", &condition.debug_with(self.reg))
                 .field("then_branch", &then_branch.debug_with(self.reg))
                 .field(
                     "else_branch",
