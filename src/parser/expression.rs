@@ -357,7 +357,6 @@ pub(crate) mod tests {
     use nyx_source::SourceFile;
     use rstest::rstest;
 
-    #[cfg(test)]
     pub fn make_lexer(code: &str) -> (Lexer, SourceFile) {
         let source_file: SourceFile = SourceFile::new("main.nyx", code);
         (Lexer::new(source_file.clone()), source_file)
