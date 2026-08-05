@@ -209,15 +209,13 @@ impl Lexer {
     /// The start position is usually captured before consuming a token, while the
     /// current cursor position marks the end of that token.
     fn span_from(&self, start: Cursor) -> Span {
-        let end = self.cursor;
-        Span::new(
-            start.offset,
-            end.offset,
-            start.line,
-            start.column,
-            end.line,
-            end.column,
-        )
+        let start =
+            u32::try_from(start.offset).expect("source file exceeds the maximum supported size");
+
+        let end = u32::try_from(self.cursor.offset)
+            .expect("source file exceeds the maximum supported size");
+
+        Span::new(start, end)
     }
 
     /// Consumes bytes while `predicate` returns true and returns the consumed text.
@@ -338,9 +336,10 @@ impl Lexer {
         let span = self.span_from(start);
         let source_span = span.into();
 
+        let value_span = Span::new(span.start, span.end - 1);
         let err = LexerError::IncompleteFloat {
             // `span.end - 1` removes the trailing `.` from the suggestion value.
-            value: self.source_file.contents()[span.start..span.end - 1].to_string(),
+            value: self.source_file.slice(value_span).to_string(),
             at: source_span,
             suggestion: source_span,
             src: self.source_file.clone(),

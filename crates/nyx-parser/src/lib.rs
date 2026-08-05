@@ -61,8 +61,7 @@ impl<'a> Parser<'a> {
     }
 
     pub(crate) fn eof_span(&self) -> Span {
-        self.previous()
-            .map_or(Span::single_line(0, 0, 1, 1, 1), |token| token.span)
+        self.previous().map_or(Span::new(0, 0), |token| token.span)
     }
 
     /// Consumes the current token and advances the parser position.

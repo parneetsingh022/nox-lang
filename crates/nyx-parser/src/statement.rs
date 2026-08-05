@@ -257,7 +257,10 @@ mod tests {
         }
 
         pub fn whole_single_line_span(source: &str) -> Span {
-            Span::single_line(0, source.len(), 1, 1, source.chars().count() + 1)
+            let end = u32::try_from(source.len())
+                .expect("source file exceeds the maximum supported size");
+
+            Span::new(0, end)
         }
 
         pub fn assert_missing_operator(source: &str) {
@@ -480,7 +483,7 @@ mod tests {
                 let source = "\n  let result = 42;";
                 let (stmt, _) = parse_stmt(source);
 
-                assert_eq!(stmt.span(), Span::single_line(3, source.len(), 2, 3, 19,));
+                assert_eq!(stmt.span(), Span::new(3, source.len() as u32));
             }
 
             #[test]
@@ -490,7 +493,7 @@ mod tests {
 
                 let (name, _) = expect_let(&stmt);
 
-                assert_eq!(name.span(), Span::single_line(4, 10, 1, 5, 11));
+                assert_eq!(name.span(), Span::new(4, 10));
             }
 
             #[test]
@@ -500,7 +503,7 @@ mod tests {
 
                 let (name, _) = expect_let(&stmt);
 
-                assert_eq!(name.span(), Span::single_line(7, 16, 2, 7, 16));
+                assert_eq!(name.span(), Span::new(7, 16));
             }
 
             #[test]
@@ -513,7 +516,7 @@ mod tests {
 
                 assert_eq!("destination", symbol_registry.resolve(name.symbol()));
 
-                assert_eq!(name.span(), Span::single_line(4, 15, 1, 5, 16));
+                assert_eq!(name.span(), Span::new(4, 15));
 
                 let ExprKind::Identifier(symbol) = expr.kind() else {
                     panic!(
@@ -525,7 +528,7 @@ mod tests {
 
                 assert_eq!("source", symbol_registry.resolve(*symbol));
 
-                assert_eq!(expr.span(), Span::single_line(18, 24, 1, 19, 25));
+                assert_eq!(expr.span(), Span::new(18, 24));
             }
         }
     }
@@ -685,7 +688,7 @@ mod tests {
                 let (stmt, _) = parse_stmt(source);
 
                 assert_eq!(stmt.span().start, 0);
-                assert_eq!(stmt.span().end, source.len());
+                assert_eq!(stmt.span().end, source.len() as u32);
             }
         }
     }

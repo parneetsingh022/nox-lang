@@ -274,12 +274,9 @@ mod token_spans {
             &[
                 (
                     ExpectedToken::Kind(TokenKind::Keyword(Keyword::Let)),
-                    Span::single_line(0, 3, 1, 1, 4),
+                    Span::new(0, 3),
                 ),
-                (
-                    ExpectedToken::Identifier("x"),
-                    Span::single_line(6, 7, 2, 3, 4),
-                ),
+                (ExpectedToken::Identifier("x"), Span::new(6, 7)),
             ],
         );
     }
@@ -289,14 +286,8 @@ mod token_spans {
         assert_spans(
             "a\n\nb",
             &[
-                (
-                    ExpectedToken::Identifier("a"),
-                    Span::single_line(0, 1, 1, 1, 2),
-                ),
-                (
-                    ExpectedToken::Identifier("b"),
-                    Span::single_line(3, 4, 3, 1, 2),
-                ),
+                (ExpectedToken::Identifier("a"), Span::new(0, 1)),
+                (ExpectedToken::Identifier("b"), Span::new(3, 4)),
             ],
         );
     }
@@ -305,10 +296,7 @@ mod token_spans {
     fn tracks_span_after_leading_whitespace() {
         assert_spans(
             "  \n  hello",
-            &[(
-                ExpectedToken::Identifier("hello"),
-                Span::single_line(5, 10, 2, 3, 8),
-            )],
+            &[(ExpectedToken::Identifier("hello"), Span::new(5, 10))],
         );
     }
 
@@ -316,10 +304,7 @@ mod token_spans {
     fn tracks_span_after_tabs() {
         assert_spans(
             "\t\tabc",
-            &[(
-                ExpectedToken::Identifier("abc"),
-                Span::single_line(2, 5, 1, 3, 6),
-            )],
+            &[(ExpectedToken::Identifier("abc"), Span::new(2, 5))],
         );
     }
 
@@ -328,23 +313,17 @@ mod token_spans {
         assert_spans(
             "a\r\nb",
             &[
-                (
-                    ExpectedToken::Identifier("a"),
-                    Span::single_line(0, 1, 1, 1, 2),
-                ),
-                (
-                    ExpectedToken::Identifier("b"),
-                    Span::single_line(3, 4, 2, 1, 2),
-                ),
+                (ExpectedToken::Identifier("a"), Span::new(0, 1)),
+                (ExpectedToken::Identifier("b"), Span::new(3, 4)),
             ],
         );
     }
 
     #[rstest]
-    #[case("let", Span::single_line(0, 3, 1, 1, 4))]
-    #[case("    let", Span::single_line(4, 7, 1, 5, 8))]
-    #[case("\t\tlet", Span::single_line(2, 5, 1, 3, 6))]
-    #[case("\n  let", Span::single_line(3, 6, 2, 3, 6))]
+    #[case("let", Span::new(0, 3))]
+    #[case("    let", Span::new(4, 7))]
+    #[case("\t\tlet", Span::new(2, 5))]
+    #[case("\n  let", Span::new(3, 6))]
     fn tracks_columns_after_whitespace(#[case] source: &str, #[case] expected_span: Span) {
         assert_spans(
             source,
@@ -363,10 +342,7 @@ mod token_spans {
     #[case("&&", TokenKind::And)]
     #[case("||", TokenKind::Or)]
     fn tracks_two_character_operator_span(#[case] source: &str, #[case] kind: TokenKind) {
-        assert_spans(
-            source,
-            &[(ExpectedToken::Kind(kind), Span::single_line(0, 2, 1, 1, 3))],
-        );
+        assert_spans(source, &[(ExpectedToken::Kind(kind), Span::new(0, 2))]);
     }
 
     #[rstest]
@@ -380,10 +356,7 @@ mod token_spans {
     #[case("[", TokenKind::OpenBracket)]
     #[case("]", TokenKind::CloseBracket)]
     fn tracks_punctuation_span(#[case] source: &str, #[case] kind: TokenKind) {
-        assert_spans(
-            source,
-            &[(ExpectedToken::Kind(kind), Span::single_line(0, 1, 1, 1, 2))],
-        );
+        assert_spans(source, &[(ExpectedToken::Kind(kind), Span::new(0, 1))]);
     }
 
     #[test]
@@ -393,56 +366,29 @@ mod token_spans {
             &[
                 (
                     ExpectedToken::Kind(TokenKind::Keyword(Keyword::Let)),
-                    Span::single_line(0, 3, 1, 1, 4),
+                    Span::new(0, 3),
                 ),
-                (
-                    ExpectedToken::Identifier("x"),
-                    Span::single_line(4, 5, 1, 5, 6),
-                ),
-                (
-                    ExpectedToken::Kind(TokenKind::Eq),
-                    Span::single_line(6, 7, 1, 7, 8),
-                ),
-                (
-                    ExpectedToken::Kind(TokenKind::OpenParen),
-                    Span::single_line(8, 9, 1, 9, 10),
-                ),
-                (
-                    ExpectedToken::Integer("1"),
-                    Span::single_line(9, 10, 1, 10, 11),
-                ),
-                (
-                    ExpectedToken::Kind(TokenKind::Plus),
-                    Span::single_line(11, 12, 1, 12, 13),
-                ),
+                (ExpectedToken::Identifier("x"), Span::new(4, 5)),
+                (ExpectedToken::Kind(TokenKind::Eq), Span::new(6, 7)),
+                (ExpectedToken::Kind(TokenKind::OpenParen), Span::new(8, 9)),
+                (ExpectedToken::Integer("1"), Span::new(9, 10)),
+                (ExpectedToken::Kind(TokenKind::Plus), Span::new(11, 12)),
                 (
                     ExpectedToken::Kind(TokenKind::OpenBracket),
-                    Span::single_line(13, 14, 1, 14, 15),
+                    Span::new(13, 14),
                 ),
-                (
-                    ExpectedToken::Integer("2"),
-                    Span::single_line(14, 15, 1, 15, 16),
-                ),
-                (
-                    ExpectedToken::Kind(TokenKind::Star),
-                    Span::single_line(16, 17, 1, 17, 18),
-                ),
-                (
-                    ExpectedToken::Integer("3"),
-                    Span::single_line(18, 19, 1, 19, 20),
-                ),
+                (ExpectedToken::Integer("2"), Span::new(14, 15)),
+                (ExpectedToken::Kind(TokenKind::Star), Span::new(16, 17)),
+                (ExpectedToken::Integer("3"), Span::new(18, 19)),
                 (
                     ExpectedToken::Kind(TokenKind::CloseBracket),
-                    Span::single_line(19, 20, 1, 20, 21),
+                    Span::new(19, 20),
                 ),
                 (
                     ExpectedToken::Kind(TokenKind::CloseParen),
-                    Span::single_line(20, 21, 1, 21, 22),
+                    Span::new(20, 21),
                 ),
-                (
-                    ExpectedToken::Kind(TokenKind::Semi),
-                    Span::single_line(21, 22, 1, 22, 23),
-                ),
+                (ExpectedToken::Kind(TokenKind::Semi), Span::new(21, 22)),
             ],
         );
     }
@@ -454,24 +400,12 @@ mod token_spans {
             &[
                 (
                     ExpectedToken::Kind(TokenKind::Keyword(Keyword::Let)),
-                    Span::single_line(11, 14, 2, 1, 4),
+                    Span::new(11, 14),
                 ),
-                (
-                    ExpectedToken::Identifier("x"),
-                    Span::single_line(15, 16, 2, 5, 6),
-                ),
-                (
-                    ExpectedToken::Kind(TokenKind::Eq),
-                    Span::single_line(17, 18, 2, 7, 8),
-                ),
-                (
-                    ExpectedToken::Integer("10"),
-                    Span::single_line(19, 21, 2, 9, 11),
-                ),
-                (
-                    ExpectedToken::Kind(TokenKind::Semi),
-                    Span::single_line(21, 22, 2, 11, 12),
-                ),
+                (ExpectedToken::Identifier("x"), Span::new(15, 16)),
+                (ExpectedToken::Kind(TokenKind::Eq), Span::new(17, 18)),
+                (ExpectedToken::Integer("10"), Span::new(19, 21)),
+                (ExpectedToken::Kind(TokenKind::Semi), Span::new(21, 22)),
             ],
         );
     }
