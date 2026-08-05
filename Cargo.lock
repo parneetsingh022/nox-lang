@@ -281,6 +281,7 @@ dependencies = [
  "miette",
  "nyx-diagnostic",
  "nyx-lexer",
+ "nyx-parser",
  "nyx-source",
  "nyx-token",
  "rstest",
@@ -295,6 +296,17 @@ version = "0.1.0"
 dependencies = [
  "miette",
  "nyx-diagnostic",
+ "nyx-source",
+ "nyx-token",
+ "rstest",
+]
+
+[[package]]
+name = "nyx-parser"
+version = "0.1.0"
+dependencies = [
+ "nyx-diagnostic",
+ "nyx-lexer",
  "nyx-source",
  "nyx-token",
  "rstest",

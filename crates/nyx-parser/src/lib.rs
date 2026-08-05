@@ -1,14 +1,14 @@
 //! Syntax parser for translating token streams into abstract syntax trees (ASTs).
 
 pub mod ast;
-pub mod expression;
-pub mod statement;
+pub(crate) mod expression;
+pub(crate) mod statement;
 
 use nyx_diagnostic::ParserError;
 use nyx_source::{SourceFile, Span};
 use nyx_token::{SymbolRegistry, Token, TokenKind};
 
-use crate::parser::ast::{SpannedIdentifier, Stmt};
+use crate::ast::{SpannedIdentifier, Stmt};
 
 /// Parses a stream of lexical tokens into an abstract syntax tree (AST).
 pub struct Parser<'a> {
@@ -44,42 +44,42 @@ impl<'a> Parser<'a> {
     }
 
     /// Returns the current token without advancing the position.
-    fn peek(&self) -> Option<Token> {
+    pub(crate) fn peek(&self) -> Option<Token> {
         self.tokens.get(self.pos).copied()
     }
 
     /// Returns the most recently consumed token.
-    fn previous(&self) -> Option<Token> {
+    pub(crate) fn previous(&self) -> Option<Token> {
         self.pos
             .checked_sub(1)
             .and_then(|pos| self.tokens.get(pos))
             .copied()
     }
 
-    fn is_eof(&self) -> bool {
+    pub(crate) fn is_eof(&self) -> bool {
         self.pos >= self.tokens.len()
     }
 
-    fn eof_span(&self) -> Span {
+    pub(crate) fn eof_span(&self) -> Span {
         self.previous()
             .map_or(Span::single_line(0, 0, 1, 1, 1), |token| token.span)
     }
 
     /// Consumes the current token and advances the parser position.
-    fn advance(&mut self) -> Option<Token> {
+    pub(crate) fn advance(&mut self) -> Option<Token> {
         let token = self.tokens.get(self.pos).copied()?;
         self.pos += 1;
         Some(token)
     }
 
     /// Returns `true` if the current token matches the given kind.
-    fn check(&self, kind: TokenKind) -> bool {
+    pub(crate) fn check(&self, kind: TokenKind) -> bool {
         self.peek().is_some_and(|token| token.kind == kind)
     }
 
     /// Checks if the next token matches `expected`.
     /// If it does, consumes the token and returns `true`.
-    fn eat(&mut self, expected: TokenKind) -> bool {
+    pub(crate) fn eat(&mut self, expected: TokenKind) -> bool {
         if self.check(expected) {
             self.advance();
             true
@@ -88,7 +88,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn expect(&mut self, expected: TokenKind) -> Result<Token, ParserError> {
+    pub(crate) fn expect(&mut self, expected: TokenKind) -> Result<Token, ParserError> {
         match self.peek() {
             Some(token) if token.kind == expected => {
                 // Safe to unwrap because peek() just guaranteed a token exists
@@ -113,7 +113,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn expect_identifier(&mut self) -> Result<SpannedIdentifier, ParserError> {
+    pub(crate) fn expect_identifier(&mut self) -> Result<SpannedIdentifier, ParserError> {
         let token = self.peek().ok_or_else(|| self.unexpected_eof_error())?;
 
         match token.kind {
@@ -130,7 +130,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn expect_semicolon(&mut self) -> Result<Token, ParserError> {
+    pub(crate) fn expect_semicolon(&mut self) -> Result<Token, ParserError> {
         let peeked = self.peek();
 
         if let Some(token) = peeked
@@ -154,7 +154,7 @@ impl<'a> Parser<'a> {
 
     /// Expects a closing delimiter (like `)` or `}`).
     /// If the token is missing, throws an UnclosedDelimiterError pointing to the `opened_at` span.
-    fn expect_closing(
+    pub(crate) fn expect_closing(
         &mut self,
         expected: TokenKind,
         opened_at: Span,
@@ -169,14 +169,14 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn unexpected_eof_error(&self) -> ParserError {
+    pub(crate) fn unexpected_eof_error(&self) -> ParserError {
         ParserError::UnexpectedEof {
             at: self.eof_span().into(),
             src: self.source_file.clone(),
         }
     }
 
-    fn expected_statement_error(&self, token: Token) -> ParserError {
+    pub(crate) fn expected_statement_error(&self, token: Token) -> ParserError {
         ParserError::ExpectedStatement {
             found: token.kind,
             at: token.span.into(),

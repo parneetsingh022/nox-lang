@@ -1,5 +1,5 @@
 use crate::common::make_lexer;
-use nyx_lang::parser::Parser;
+use nyx_parser::Parser;
 
 fn parse_expression_debug(source: &str) -> String {
     let (mut lexer, source_file) = make_lexer(source);

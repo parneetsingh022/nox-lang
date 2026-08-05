@@ -3,6 +3,7 @@ members = [
     ".",
     "crates/nyx-diagnostic",
     "crates/nyx-lexer",
+    "crates/nyx-parser",
     "crates/nyx-source",
     "crates/nyx-token",
 ]
@@ -21,6 +22,7 @@ nyx-diagnostic = { path = "crates/nyx-diagnostic" }
 nyx-source = { path = "crates/nyx-source" }
 nyx-token = { path = "crates/nyx-token" }
 nyx-lexer = { path = "crates/nyx-lexer" }
+nyx-parser = { path = "crates/nyx-parser" }
 
 [package]
 name = "nyx-lang"
@@ -45,6 +47,7 @@ nyx-diagnostic.workspace = true
 nyx-source.workspace = true
 nyx-token.workspace = true
 nyx-lexer.workspace = true
+nyx-parser.workspace = true
 
 [dev-dependencies]
 insta.workspace = true
