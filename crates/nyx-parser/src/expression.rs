@@ -2,7 +2,7 @@ use nyx_diagnostic::ParserError;
 use nyx_source::Span;
 use nyx_token::{Keyword, Symbol, Token, TokenKind};
 
-use crate::parser::{
+use crate::{
     Parser,
     ast::{BinaryOp, Expr, ExprKind, UnaryOp},
 };

@@ -2,10 +2,9 @@ use std::{env, fs, process};
 
 use nyx_diagnostic::ParserError;
 use nyx_lexer::Lexer;
+use nyx_parser::{Parser, ast::Stmt};
 use nyx_source::SourceFile;
 use nyx_token::Token;
-
-use nyx_lang::parser::{Parser, ast::Stmt};
 
 fn main() {
     // Collect arguments from the command line

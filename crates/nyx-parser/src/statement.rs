@@ -2,7 +2,7 @@ use nyx_diagnostic::ParserError;
 use nyx_source::Span;
 use nyx_token::{Keyword, Token, TokenKind};
 
-use crate::parser::{
+use crate::{
     Parser,
     ast::{Stmt, StmtKind},
     expression::is_expr_start,
@@ -151,7 +151,7 @@ mod tests {
     use nyx_token::SymbolRegistry;
     use rstest::rstest;
 
-    use crate::parser::{
+    use crate::{
         ast::{BinaryOp, Expr, ExprKind, SpannedIdentifier, UnaryOp},
         expression::tests::{binary, boolean, float, identifier, int, unary},
     };
