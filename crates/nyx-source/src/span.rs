@@ -16,7 +16,7 @@ pub struct Span {
 impl Span {
     /// Creates a new span covering `start..end`.
     pub const fn new(start: u32, end: u32) -> Self {
-        debug_assert!(start <= end);
+        assert!(start <= end, "span start must not exceed span end");
         Self { start, end }
     }
 
@@ -25,7 +25,10 @@ impl Span {
     ///
     /// The spans are expected to appear in source order.
     pub fn from_bounds(first: Self, last: Self) -> Self {
-        debug_assert!(first.start <= last.end);
+        assert!(
+            first.start <= last.start,
+            "spans must appear in source order"
+        );
 
         Self {
             start: first.start,
