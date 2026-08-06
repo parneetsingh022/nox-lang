@@ -79,7 +79,7 @@ impl<'a> Parser<'a> {
 
         // A new expression on another line is more likely the beginning of the
         // next statement. Let `expect_semicolon` report the missing terminator.
-        if !self.source_file.is_same_line(token.span.start, left.end) {
+        if !self.source_file.is_same_line(left.end, token.span.start) {
             return Ok(());
         }
 
