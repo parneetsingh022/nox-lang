@@ -209,11 +209,13 @@ impl Lexer {
     /// The start position is usually captured before consuming a token, while the
     /// current cursor position marks the end of that token.
     fn span_from(&self, start: Cursor) -> Span {
-        let start =
-            u32::try_from(start.offset).expect("source file exceeds the maximum supported size");
+        // `SourceFile::new` rejects sources larger than `u32::MAX`, and cursor
+        // offsets never advance beyond the source, so these conversions must succeed.
+        let start = u32::try_from(start.offset)
+            .expect("lexer offset exceeds the maximum supported source size");
 
         let end = u32::try_from(self.cursor.offset)
-            .expect("source file exceeds the maximum supported size");
+            .expect("lexer offset exceeds the maximum supported source size");
 
         Span::new(start, end)
     }
