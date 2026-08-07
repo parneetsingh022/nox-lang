@@ -7,7 +7,7 @@ fn snapshot_tokens(source: &str) -> String {
 
     while let Some(token_result) = lexer.next() {
         let token = token_result.expect("lexer error");
-        let location = source_file.location(token.span.start);
+        let location = source_file.location(token.span.start());
 
         let kind = match &token.kind {
             TokenKind::Identifier(symbol) => {
@@ -29,8 +29,8 @@ fn snapshot_tokens(source: &str) -> String {
             "kind: {kind}\npos:  {}:{}\nrange: [{}..{}]\ntext:  {:?}\n",
             location.line,
             location.column,
-            token.span.start,
-            token.span.end,
+            token.span.start(),
+            token.span.end(),
             &source[token.span.range()],
         ));
     }

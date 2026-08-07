@@ -315,7 +315,7 @@ impl Lexer {
 
         let source_span = span.into();
 
-        let value_span = Span::new(span.start, span.end - 1);
+        let value_span = Span::new(span.start(), span.end() - 1);
         let err = LexerError::IncompleteFloat {
             // `span.end - 1` removes the trailing `.` from the suggestion value.
             value: self.source_file.slice(value_span).to_string(),

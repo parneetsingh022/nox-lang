@@ -79,7 +79,10 @@ impl<'a> Parser<'a> {
 
         // A new expression on another line is more likely the beginning of the
         // next statement. Let `expect_semicolon` report the missing terminator.
-        if !self.source_file.is_same_line(left.end, token.span.start) {
+        if !self
+            .source_file
+            .is_same_line(left.end(), token.span.start())
+        {
             return Ok(());
         }
 
@@ -692,7 +695,7 @@ pub(crate) mod tests {
         let expr = parse_expression("1 + 2 * 3");
 
         // Outer binary expression (+): spans from '1' (0) to '3' (8) -> 0..9 roughly depending on exact spacing
-        assert_eq!(expr.span().start, 0);
+        assert_eq!(expr.span().start(), 0);
 
         // Inner binary expression (*): "2 * 3" spans from '2' to '3'
         if let ExprKind::Binary { right, .. } = expr.kind() {

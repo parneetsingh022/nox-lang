@@ -7,10 +7,10 @@ use miette::SourceSpan;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Span {
     /// Byte index where this span starts.
-    pub start: u32,
+    start: u32,
 
     /// Byte index immediately after this span ends.
-    pub end: u32,
+    end: u32,
 }
 
 impl Span {
@@ -54,6 +54,16 @@ impl Span {
     /// Converts the span into a range usable for indexing source text.
     pub const fn range(self) -> std::ops::Range<usize> {
         self.start as usize..self.end as usize
+    }
+
+    /// Returns the start offset of span
+    pub const fn start(self) -> u32 {
+        self.start
+    }
+
+    /// Returns the end offset of span
+    pub const fn end(self) -> u32 {
+        self.end
     }
 }
 

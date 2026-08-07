@@ -687,8 +687,8 @@ mod tests {
                 let source = "{\n    let x = 5;\n}";
                 let (stmt, _) = parse_stmt(source);
 
-                assert_eq!(stmt.span().start, 0);
-                assert_eq!(stmt.span().end, source.len() as u32);
+                assert_eq!(stmt.span().start(), 0);
+                assert_eq!(stmt.span().end(), source.len() as u32);
             }
         }
     }
