@@ -104,7 +104,7 @@ impl BinaryOp {
             Self::Assignment => Precedence::Assignment.right_assoc(),
             // Left Associative
             Self::Plus | Self::Minus => Precedence::Term.left_assoc(),
-            Self::Multiply | Self::Divide => Precedence::Term.right_assoc(),
+            Self::Multiply | Self::Divide => Precedence::Factor.left_assoc(),
         }
     }
 

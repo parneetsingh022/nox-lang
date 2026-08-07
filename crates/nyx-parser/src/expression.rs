@@ -455,56 +455,49 @@ pub(crate) mod tests {
         assert_eq!(parse_expression(source), expected);
     }
 
-    #[test]
-    fn multiplication_binds_tighter_than_addition() {
-        let expr = parse_expression("1 + 2 * 3");
-
-        let expected = binary(
-            int(1),
-            BinaryOp::Plus,
-            binary(int(2), BinaryOp::Multiply, int(3)),
-        );
-
-        assert_eq!(expr, expected);
+    #[rstest]
+    #[case(
+        "1 + 2 * 3",
+        binary(int(1), BinaryOp::Plus, binary(int(2), BinaryOp::Multiply, int(3)),)
+    )]
+    #[case(
+        "1 * 2 + 3",
+        binary(binary(int(1), BinaryOp::Multiply, int(2)), BinaryOp::Plus, int(3),)
+    )]
+    #[case(
+        "10 - 8 / 2",
+        binary(int(10), BinaryOp::Minus, binary(int(8), BinaryOp::Divide, int(2)),)
+    )]
+    #[case(
+        "8 / 2 - 1",
+        binary(binary(int(8), BinaryOp::Divide, int(2)), BinaryOp::Minus, int(1),)
+    )]
+    fn factor_operators_bind_tighter_than_term_operators(
+        #[case] source: &str,
+        #[case] expected: Expr,
+    ) {
+        assert_eq!(parse_expression(source), expected);
     }
 
-    #[test]
-    fn division_binds_tighter_than_subtraction() {
-        let expr = parse_expression("10 - 8 / 2");
-
-        let expected = binary(
-            int(10),
-            BinaryOp::Minus,
-            binary(int(8), BinaryOp::Divide, int(2)),
-        );
-
-        assert_eq!(expr, expected);
-    }
-
-    #[test]
-    fn addition_is_left_associative() {
-        let expr = parse_expression("1 + 2 + 3");
-
-        let expected = binary(
-            binary(int(1), BinaryOp::Plus, int(2)),
-            BinaryOp::Plus,
-            int(3),
-        );
-
-        assert_eq!(expr, expected);
-    }
-
-    #[test]
-    fn subtraction_is_left_associative() {
-        let expr = parse_expression("10 - 5 - 2");
-
-        let expected = binary(
-            binary(int(10), BinaryOp::Minus, int(5)),
-            BinaryOp::Minus,
-            int(2),
-        );
-
-        assert_eq!(expr, expected);
+    #[rstest]
+    #[case(
+        "1 + 2 + 3",
+        binary(binary(int(1), BinaryOp::Plus, int(2)), BinaryOp::Plus, int(3),)
+    )]
+    #[case(
+        "10 - 5 - 2",
+        binary(binary(int(10), BinaryOp::Minus, int(5)), BinaryOp::Minus, int(2),)
+    )]
+    #[case(
+        "2 * 3 * 4",
+        binary(binary(int(2), BinaryOp::Multiply, int(3)), BinaryOp::Multiply, int(4),)
+    )]
+    #[case(
+        "16 / 4 / 2",
+        binary(binary(int(16), BinaryOp::Divide, int(4)), BinaryOp::Divide, int(2),)
+    )]
+    fn arithmetic_operators_are_left_associative(#[case] source: &str, #[case] expected: Expr) {
+        assert_eq!(parse_expression(source), expected);
     }
 
     #[test]
@@ -515,6 +508,47 @@ pub(crate) mod tests {
             binary(int(1), BinaryOp::Plus, int(2)),
             BinaryOp::Multiply,
             int(3),
+        );
+
+        assert_eq!(expr, expected);
+    }
+
+    #[rstest]
+    #[case(
+        "10 - 5 + 2",
+        binary(binary(int(10), BinaryOp::Minus, int(5)), BinaryOp::Plus, int(2),)
+    )]
+    #[case(
+        "10 + 5 - 2",
+        binary(binary(int(10), BinaryOp::Plus, int(5)), BinaryOp::Minus, int(2),)
+    )]
+    #[case(
+        "24 / 3 * 2",
+        binary(binary(int(24), BinaryOp::Divide, int(3)), BinaryOp::Multiply, int(2),)
+    )]
+    #[case(
+        "24 * 3 / 2",
+        binary(binary(int(24), BinaryOp::Multiply, int(3)), BinaryOp::Divide, int(2),)
+    )]
+    fn operators_with_equal_precedence_are_left_associative(
+        #[case] source: &str,
+        #[case] expected: Expr,
+    ) {
+        assert_eq!(parse_expression(source), expected);
+    }
+
+    #[test]
+    fn parses_mixed_precedence_regression() {
+        let expr = parse_expression("30 * 30 + 665 * (4 + 3)");
+
+        let expected = binary(
+            binary(int(30), BinaryOp::Multiply, int(30)),
+            BinaryOp::Plus,
+            binary(
+                int(665),
+                BinaryOp::Multiply,
+                binary(int(4), BinaryOp::Plus, int(3)),
+            ),
         );
 
         assert_eq!(expr, expected);
