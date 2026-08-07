@@ -4,6 +4,16 @@ use miette::{MietteError, NamedSource, SourceCode, SourceSpan, SpanContents};
 
 use crate::Span;
 
+/// Validates that a source length fits within the supported offset range.
+///
+/// Source offsets and spans are represented as `u32` throughout the source,
+/// lexer, and diagnostic infrastructure. Validating the source length once at
+/// construction time allows those components to safely convert byte offsets to
+/// `u32` without repeating checked conversions.
+///
+/// # Panics
+///
+/// Panics if `len` exceeds [`u32::MAX`].
 fn validate_source_len(len: usize) {
     u32::try_from(len).expect("source file exceeds the maximum supported size");
 }
@@ -30,6 +40,11 @@ impl SourceFile {
     ///
     /// The source text is stored in a [`NamedSource`] and wrapped in an [`Arc`]
     /// so it can be cloned and shared cheaply.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the source contents exceed the maximum supported size of
+    /// [u32::MAX] bytes.
     pub fn new(name: impl Into<String>, content: impl Into<String>) -> Self {
         let name = name.into();
         let content = content.into();
