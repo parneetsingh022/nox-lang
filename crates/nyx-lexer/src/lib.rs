@@ -336,6 +336,8 @@ impl Lexer {
     /// diagnostic includes a suggested `.0` completion.
     fn incomplete_float_token(&mut self, start: Cursor) -> Token {
         let span = self.span_from(start);
+        debug_assert!(!span.is_empty(), "lex_float received an empty span");
+
         let source_span = span.into();
 
         let value_span = Span::new(span.start, span.end - 1);
