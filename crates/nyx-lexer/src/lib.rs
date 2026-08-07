@@ -35,39 +35,14 @@ fn is_ident_continue(ch: char) -> bool {
 }
 
 /// Tracks current position for lexer in source file
-#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[derive(Debug, Default, Eq, PartialEq, Clone, Copy)]
 pub struct Cursor {
     offset: usize,
-    line: usize,
-    column: usize,
-}
-
-impl Default for Cursor {
-    fn default() -> Self {
-        Self {
-            offset: 0,
-            line: 1,
-            column: 1,
-        }
-    }
 }
 
 impl Cursor {
     fn consume(&mut self, ch: char) {
-        let byte_len = ch.len_utf8();
-        match ch {
-            '\n' => self.newline(),
-            _ => {
-                self.offset += byte_len;
-                self.column += 1;
-            }
-        }
-    }
-
-    fn newline(&mut self) {
-        self.offset += 1;
-        self.line += 1;
-        self.column = 1;
+        self.offset += ch.len_utf8();
     }
 }
 
