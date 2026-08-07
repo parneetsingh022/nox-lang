@@ -68,6 +68,11 @@ impl SourceFile {
 
     /// Returns the one-based line and character column for a byte offset.
     ///
+    /// The offset is interpreted as a byte offset into the source text.
+    ///
+    /// Computing the column is linear in the number of characters between the
+    /// start of the line and `offset`.
+    ///
     /// # Panics
     ///
     /// Panics if `offset` is out of bounds or is not a UTF-8 character boundary.
