@@ -36,16 +36,44 @@ pub enum OpCode {
     /// Loads a constant value from the constant pool.
     LoadConstant = 0x26,
 
-    Add = 0x30,
-    Sub = 0x31,
-    Mul = 0x32,
-    Div = 0x33,
-    Eq = 0x34,
-    Neg = 0x35,
-    Not = 0x36,
+    /// Binary Operator
+    Binary = 0x30,
+
+    /// Unary Operator
+    Unary = 0x31,
 }
 
 impl OpCode {
+    pub fn from_byte(byte: u8) -> Option<Self> {
+        Self::try_from(byte).ok()
+    }
+}
+
+#[derive(Debug, Display, TryFromPrimitive, Eq, PartialEq, Clone, Copy)]
+#[repr(u8)]
+#[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
+pub enum BinaryOpCode {
+    Add = 0x00,
+    Sub = 0x01,
+    Mul = 0x02,
+    Div = 0x03,
+}
+
+impl BinaryOpCode {
+    pub fn from_byte(byte: u8) -> Option<Self> {
+        Self::try_from(byte).ok()
+    }
+}
+
+#[derive(Debug, Display, TryFromPrimitive, Eq, PartialEq, Clone, Copy)]
+#[repr(u8)]
+#[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
+pub enum UnaryOpCode {
+    Neg = 0x00,
+    Not = 0x01,
+}
+
+impl UnaryOpCode {
     pub fn from_byte(byte: u8) -> Option<Self> {
         Self::try_from(byte).ok()
     }

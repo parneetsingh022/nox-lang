@@ -2,7 +2,11 @@ use std::fmt::{self, Write};
 
 use nyx_token::SymbolRegistry;
 
-use crate::{ByteCode, OpCode, compiler::Value};
+use crate::{
+    ByteCode, OpCode,
+    compiler::Value,
+    opcodes::{BinaryOpCode, UnaryOpCode},
+};
 
 pub struct Disassembler<'a> {
     bytecode: &'a ByteCode,
@@ -96,16 +100,22 @@ impl<'a> Disassembler<'a> {
                 Ok(offset + 3)
             }
 
-            OpCode::Add
-            | OpCode::Sub
-            | OpCode::Mul
-            | OpCode::Div
-            | OpCode::Eq
-            | OpCode::Neg
-            | OpCode::Not => {
-                writeln!(output, "{offset:4}  {}", opcode)?;
+            OpCode::Binary => {
+                let code = self.read_u8(offset + 1);
+                let op = BinaryOpCode::from_byte(code).expect("invalid binary opcode");
 
-                Ok(offset + 1)
+                writeln!(output, "{offset:4}  {:<18} {:5}  ({})", opcode, code, op)?;
+
+                Ok(offset + 2)
+            }
+
+            OpCode::Unary => {
+                let code = self.read_u8(offset + 1);
+                let op = UnaryOpCode::from_byte(code).expect("invalid unary opcode");
+
+                writeln!(output, "{offset:4}  {:<18} {:5}  ({})", opcode, code, op)?;
+
+                Ok(offset + 2)
             }
         }
     }
@@ -114,6 +124,10 @@ impl<'a> Disassembler<'a> {
         let code = self.bytecode.code();
 
         u16::from_le_bytes([code[offset], code[offset + 1]])
+    }
+
+    fn read_u8(&self, offset: usize) -> u8 {
+        self.bytecode.code()[offset]
     }
 }
 

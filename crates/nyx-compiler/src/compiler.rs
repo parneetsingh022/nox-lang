@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use crate::OpCode;
+use crate::{
+    OpCode,
+    opcodes::{BinaryOpCode, UnaryOpCode},
+};
 use nyx_parser::ast::{BinaryOp, Expr, ExprKind, SpannedIdentifier, Stmt, StmtKind, UnaryOp};
 use nyx_token::Symbol;
 
@@ -209,6 +212,16 @@ impl ByteCode {
         &self.globals
     }
 
+    fn emit_binary_opcode(&mut self, opcode: BinaryOpCode) {
+        self.code.push(OpCode::Binary as u8);
+        self.code.push(opcode as u8);
+    }
+
+    fn emit_unary_opcode(&mut self, opcode: UnaryOpCode) {
+        self.code.push(OpCode::Unary as u8);
+        self.code.push(opcode as u8);
+    }
+
     fn emit_opcode(&mut self, opcode: OpCode) {
         self.code.push(opcode as u8);
     }
@@ -287,10 +300,10 @@ impl<'a> Compiler<'a> {
                 self.compile_expr(right);
 
                 match op {
-                    BinaryOp::Plus => self.bytecode.emit_opcode(OpCode::Add),
-                    BinaryOp::Minus => self.bytecode.emit_opcode(OpCode::Sub),
-                    BinaryOp::Multiply => self.bytecode.emit_opcode(OpCode::Mul),
-                    BinaryOp::Divide => self.bytecode.emit_opcode(OpCode::Div),
+                    BinaryOp::Plus => self.bytecode.emit_binary_opcode(BinaryOpCode::Add),
+                    BinaryOp::Minus => self.bytecode.emit_binary_opcode(BinaryOpCode::Sub),
+                    BinaryOp::Multiply => self.bytecode.emit_binary_opcode(BinaryOpCode::Mul),
+                    BinaryOp::Divide => self.bytecode.emit_binary_opcode(BinaryOpCode::Div),
                     BinaryOp::Assignment => todo!(),
                 }
             }
@@ -298,8 +311,8 @@ impl<'a> Compiler<'a> {
                 self.compile_expr(expr);
 
                 match op {
-                    UnaryOp::Minus => self.bytecode.emit_opcode(OpCode::Neg),
-                    UnaryOp::Not => self.bytecode.emit_opcode(OpCode::Not),
+                    UnaryOp::Minus => self.bytecode.emit_unary_opcode(UnaryOpCode::Neg),
+                    UnaryOp::Not => self.bytecode.emit_unary_opcode(UnaryOpCode::Not),
                 }
             }
             ExprKind::Call { .. } => todo!(),
