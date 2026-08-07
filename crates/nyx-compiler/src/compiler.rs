@@ -129,6 +129,27 @@ impl ByteCode {
         index
     }
 
+    /// Registers a global variable and returns its runtime slot.
+    ///
+    /// If the global has already been registered, its existing slot is returned.
+    /// Otherwise, a new slot is allocated.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the global table already contains the maximum number of globals
+    /// addressable by a `u16`.
+    pub fn register_global(&mut self, symbol: Symbol) -> u16 {
+        if let Some(&slot) = self.globals.get(&symbol) {
+            return slot;
+        }
+
+        let slot =
+            u16::try_from(self.globals.len()).expect("global table exceeds maximum supported size");
+
+        self.globals.insert(symbol, slot);
+
+        slot
+    }
     /// Emits a `LoadConstant` instruction for the given constant-pool index.
     ///
     /// The constant index is encoded as a two-byte operand immediately
@@ -226,9 +247,7 @@ impl<'a> Compiler<'a> {
     fn compile_let_stmt(&mut self, name: &SpannedIdentifier, expr: &Expr) {
         self.compile_expr(expr);
 
-        let index = u16::try_from(self.bytecode.globals.len()).expect("too many global variables");
-
-        self.bytecode.globals.insert(name.symbol(), index);
+        let index = self.bytecode.register_global(name.symbol());
         self.bytecode.emit_define_global(index);
     }
 
@@ -254,8 +273,14 @@ impl<'a> Compiler<'a> {
                 self.bytecode.emit_load_constant(index);
             }
             ExprKind::Identifier(symbol) => {
-                let index = self.bytecode.store_const(Value::Ident(*symbol));
-                self.bytecode.emit_load_constant(index);
+                let index = self
+                    .bytecode
+                    .globals()
+                    .get(symbol)
+                    .copied()
+                    .expect("referenced undefined global");
+
+                self.bytecode.emit_load_global(index);
             }
             ExprKind::Binary { left, op, right } => {
                 self.compile_expr(left);
