@@ -186,13 +186,7 @@ impl Lexer {
     fn span_from(&self, start: Cursor) -> Span {
         // `SourceFile::new` rejects sources larger than `u32::MAX`, and cursor
         // offsets never advance beyond the source, so these conversions must succeed.
-        let start = u32::try_from(start.offset)
-            .expect("lexer offset exceeds the maximum supported source size");
-
-        let end = u32::try_from(self.cursor.offset)
-            .expect("lexer offset exceeds the maximum supported source size");
-
-        Span::new(start, end)
+        Span::new(start.offset as u32, self.cursor.offset as u32)
     }
 
     /// Consumes bytes while `predicate` returns true and returns the consumed text.

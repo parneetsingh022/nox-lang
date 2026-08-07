@@ -4,6 +4,10 @@ use miette::{MietteError, NamedSource, SourceCode, SourceSpan, SpanContents};
 
 use crate::Span;
 
+fn validate_source_len(len: usize) {
+    u32::try_from(len).expect("source file exceeds the maximum supported size");
+}
+
 /// Shared source text used by the lexer, parser, and diagnostics.
 ///
 /// The underlying [`NamedSource`] stores the source contents and filename used
@@ -32,14 +36,11 @@ impl SourceFile {
 
         let mut line_starts = vec![0];
 
-        u32::try_from(content.len()).expect("source file exceeds the maximum supported size");
+        validate_source_len(content.len());
 
         for (offset, byte) in content.bytes().enumerate() {
             if byte == b'\n' {
-                line_starts.push(
-                    u32::try_from(offset + 1)
-                        .expect("source file exceeds the maximum supported size"),
-                );
+                line_starts.push((offset + 1) as u32);
             }
         }
 
@@ -86,10 +87,9 @@ impl SourceFile {
         // prefix so multibyte UTF-8 characters contribute one column, then add one
         // because source locations use one-based columns.
         let column = self.contents()[line_start..offset].chars().count() + 1;
-
         Location {
-            line: u32::try_from(line_index + 1).expect("source contains too many lines"),
-            column: u32::try_from(column).expect("source line is too long"),
+            line: (line_index + 1) as u32,
+            column: column as u32,
         }
     }
 
@@ -102,7 +102,7 @@ impl SourceFile {
     /// Panics if `offset` is out of bounds or is not a valid UTF-8 character
     /// boundary.
     pub fn line_of(&self, offset: u32) -> u32 {
-        u32::try_from(self.line_index(offset) + 1).expect("source contains too many lines")
+        (self.line_index(offset) + 1) as u32
     }
 
     /// Returns whether two byte offsets are on the same source line.
@@ -179,7 +179,19 @@ pub struct Location {
 
 #[cfg(test)]
 mod tests {
-    use super::{Location, SourceFile};
+    use super::*;
+
+    #[test]
+    fn accepts_maximum_supported_source_length() {
+        validate_source_len(u32::MAX as usize);
+    }
+
+    #[cfg(target_pointer_width = "64")]
+    #[test]
+    #[should_panic(expected = "source file exceeds the maximum supported size")]
+    fn rejects_source_larger_than_maximum_supported_size() {
+        validate_source_len(u32::MAX as usize + 1);
+    }
 
     #[test]
     fn stores_source_contents() {
