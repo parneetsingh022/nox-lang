@@ -2,34 +2,36 @@ use crate::common::make_lexer;
 use nyx_token::TokenKind;
 
 fn snapshot_tokens(source: &str) -> String {
-    let (mut lexer, _) = make_lexer(source);
+    let (mut lexer, source_file) = make_lexer(source);
     let mut results = Vec::new();
 
-    // Use a loop to avoid iterator lifetime issues
     while let Some(token_result) = lexer.next() {
-        let t = token_result.expect("Lexer error");
+        let token = token_result.expect("lexer error");
+        let location = source_file.location(token.span.start());
 
-        let kind_str = match &t.kind {
-            TokenKind::Identifier(sym) => {
-                format!("Identifier({:?})", lexer.symbol_registry.resolve(*sym))
+        let kind = match &token.kind {
+            TokenKind::Identifier(symbol) => {
+                format!("Identifier({:?})", lexer.symbol_registry.resolve(*symbol))
             }
-            TokenKind::IntLiteral(sym) => {
-                format!("IntLiteral({:?})", lexer.symbol_registry.resolve(*sym))
+
+            TokenKind::IntLiteral(symbol) => {
+                format!("IntLiteral({:?})", lexer.symbol_registry.resolve(*symbol))
             }
-            TokenKind::FloatLiteral(sym) => {
-                format!("FloatLiteral({:?})", lexer.symbol_registry.resolve(*sym))
+
+            TokenKind::FloatLiteral(symbol) => {
+                format!("FloatLiteral({:?})", lexer.symbol_registry.resolve(*symbol))
             }
-            other => format!("{:?}", other),
+
+            other => format!("{other:?}"),
         };
 
         results.push(format!(
-            "kind: {}\npos:  {}:{}\nrange: [{}..{}]\ntext:  {:?}\n",
-            kind_str,
-            t.span.start_line,
-            t.span.start_column,
-            t.span.start,
-            t.span.end,
-            &source[t.span.start..t.span.end]
+            "kind: {kind}\npos:  {}:{}\nrange: [{}..{}]\ntext:  {:?}\n",
+            location.line,
+            location.column,
+            token.span.start(),
+            token.span.end(),
+            &source[token.span.range()],
         ));
     }
 

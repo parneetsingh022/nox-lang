@@ -35,39 +35,14 @@ fn is_ident_continue(ch: char) -> bool {
 }
 
 /// Tracks current position for lexer in source file
-#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[derive(Debug, Default, Eq, PartialEq, Clone, Copy)]
 pub struct Cursor {
     offset: usize,
-    line: usize,
-    column: usize,
-}
-
-impl Default for Cursor {
-    fn default() -> Self {
-        Self {
-            offset: 0,
-            line: 1,
-            column: 1,
-        }
-    }
 }
 
 impl Cursor {
     fn consume(&mut self, ch: char) {
-        let byte_len = ch.len_utf8();
-        match ch {
-            '\n' => self.newline(),
-            _ => {
-                self.offset += byte_len;
-                self.column += 1;
-            }
-        }
-    }
-
-    fn newline(&mut self) {
-        self.offset += 1;
-        self.line += 1;
-        self.column = 1;
+        self.offset += ch.len_utf8();
     }
 }
 
@@ -209,15 +184,9 @@ impl Lexer {
     /// The start position is usually captured before consuming a token, while the
     /// current cursor position marks the end of that token.
     fn span_from(&self, start: Cursor) -> Span {
-        let end = self.cursor;
-        Span::new(
-            start.offset,
-            end.offset,
-            start.line,
-            start.column,
-            end.line,
-            end.column,
-        )
+        // `SourceFile::new` rejects sources larger than `u32::MAX`, and cursor
+        // offsets never advance beyond the source, so these conversions must succeed.
+        Span::new(start.offset as u32, self.cursor.offset as u32)
     }
 
     /// Consumes bytes while `predicate` returns true and returns the consumed text.
@@ -336,11 +305,14 @@ impl Lexer {
     /// diagnostic includes a suggested `.0` completion.
     fn incomplete_float_token(&mut self, start: Cursor) -> Token {
         let span = self.span_from(start);
+        debug_assert!(!span.is_empty(), "lex_float received an empty span");
+
         let source_span = span.into();
 
+        let value_span = Span::new(span.start(), span.end() - 1);
         let err = LexerError::IncompleteFloat {
             // `span.end - 1` removes the trailing `.` from the suggestion value.
-            value: self.source_file.contents()[span.start..span.end - 1].to_string(),
+            value: self.source_file.slice(value_span).to_string(),
             at: source_span,
             suggestion: source_span,
             src: self.source_file.clone(),

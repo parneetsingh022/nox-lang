@@ -79,7 +79,10 @@ impl<'a> Parser<'a> {
 
         // A new expression on another line is more likely the beginning of the
         // next statement. Let `expect_semicolon` report the missing terminator.
-        if token.span.start_line != left.end_line {
+        if !self
+            .source_file
+            .is_same_line(left.end(), token.span.start())
+        {
             return Ok(());
         }
 
@@ -653,7 +656,7 @@ pub(crate) mod tests {
     fn parses_literal_spans() {
         let expr = parse_expression("42");
         // Assuming "42" starts at byte 0 and ends at byte 2, on line 1, column 1
-        assert_eq!(expr.span(), Span::single_line(0, 2, 1, 1, 3));
+        assert_eq!(expr.span(), Span::new(0, 2));
     }
 
     #[test]
@@ -665,12 +668,12 @@ pub(crate) mod tests {
         let expr = parse_expression("1 + 2");
 
         // The binary expression should span from the start of '1' to the end of '2' (0..5)
-        assert_eq!(expr.span(), Span::single_line(0, 5, 1, 1, 6));
+        assert_eq!(expr.span(), Span::new(0, 5));
 
         // Verify inner node spans as well
         if let ExprKind::Binary { left, right, .. } = expr.kind() {
-            assert_eq!(left.span(), Span::single_line(0, 1, 1, 1, 2));
-            assert_eq!(right.span(), Span::single_line(4, 5, 1, 5, 6));
+            assert_eq!(left.span(), Span::new(0, 1));
+            assert_eq!(right.span(), Span::new(4, 5));
         } else {
             panic!("Expected binary expression");
         }
@@ -683,7 +686,7 @@ pub(crate) mod tests {
         let expr = parse_expression("(1 + 2)");
 
         // The grouped expression span should enclose the parentheses (0..7)
-        assert_eq!(expr.span(), Span::single_line(0, 7, 1, 1, 8));
+        assert_eq!(expr.span(), Span::new(0, 7));
     }
 
     #[test]
@@ -692,11 +695,11 @@ pub(crate) mod tests {
         let expr = parse_expression("1 + 2 * 3");
 
         // Outer binary expression (+): spans from '1' (0) to '3' (8) -> 0..9 roughly depending on exact spacing
-        assert_eq!(expr.span().start, 0);
+        assert_eq!(expr.span().start(), 0);
 
         // Inner binary expression (*): "2 * 3" spans from '2' to '3'
         if let ExprKind::Binary { right, .. } = expr.kind() {
-            assert_eq!(right.span(), Span::single_line(4, 9, 1, 5, 10));
+            assert_eq!(right.span(), Span::new(4, 9));
         } else {
             panic!("Expected binary expression");
         }
@@ -724,16 +727,16 @@ pub(crate) mod tests {
 
         // The overall expression is a multiplication (*) spanning from the opening '(' to '30'
         // Opening parenthesis starts at index 2, '30' ends at index 18.
-        assert_eq!(expr.span(), Span::single_line(2, 18, 1, 3, 19));
+        assert_eq!(expr.span(), Span::new(2, 18));
 
         if let ExprKind::Binary { left, op, right } = expr.kind() {
             assert_eq!(*op, BinaryOp::Multiply);
 
             // Left side is the grouped expression "( 10 + 20 )"
-            assert_eq!(left.span(), Span::single_line(2, 13, 1, 3, 14));
+            assert_eq!(left.span(), Span::new(2, 13));
 
             // Right side is the integer literal "30"
-            assert_eq!(right.span(), Span::single_line(16, 18, 1, 17, 19));
+            assert_eq!(right.span(), Span::new(16, 18));
 
             // Check inner parts of the grouped expression
             if let ExprKind::Binary {
@@ -744,9 +747,9 @@ pub(crate) mod tests {
             {
                 assert_eq!(*inner_op, BinaryOp::Plus);
                 // "10" spans from index 4 to 6
-                assert_eq!(inner_left.span(), Span::single_line(4, 6, 1, 5, 7));
+                assert_eq!(inner_left.span(), Span::new(4, 6));
                 // "20" spans from index 9 to 11
-                assert_eq!(inner_right.span(), Span::single_line(9, 11, 1, 10, 12));
+                assert_eq!(inner_right.span(), Span::new(9, 11));
             } else {
                 panic!("Expected inner binary expression inside parentheses");
             }
@@ -763,14 +766,14 @@ pub(crate) mod tests {
         let expr = parse_expression("-42");
 
         // The unary expression should span from the start of '-' to the end of '42' (0..3)
-        assert_eq!(expr.span(), Span::single_line(0, 3, 1, 1, 4));
+        assert_eq!(expr.span(), Span::new(0, 3));
 
         // Verify inner node span as well
         if let ExprKind::Unary {
             expr: inner_expr, ..
         } = expr.kind()
         {
-            assert_eq!(inner_expr.span(), Span::single_line(1, 3, 1, 2, 4));
+            assert_eq!(inner_expr.span(), Span::new(1, 3));
         } else {
             panic!("Expected unary expression");
         }
@@ -785,13 +788,13 @@ pub(crate) mod tests {
         let expr = parse_expression("!  42");
 
         // The unary expression should span from the start of '!' to the end of '42' (0..5)
-        assert_eq!(expr.span(), Span::single_line(0, 5, 1, 1, 6));
+        assert_eq!(expr.span(), Span::new(0, 5));
 
         if let ExprKind::Unary {
             expr: inner_expr, ..
         } = expr.kind()
         {
-            assert_eq!(inner_expr.span(), Span::single_line(3, 5, 1, 4, 6));
+            assert_eq!(inner_expr.span(), Span::new(3, 5));
         } else {
             panic!("Expected unary expression");
         }
