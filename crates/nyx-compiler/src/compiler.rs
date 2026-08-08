@@ -4,96 +4,9 @@ use crate::{
     OpCode,
     opcodes::{BinaryOpCode, UnaryOpCode},
 };
+use crate::{Value, fold_expr};
 use nyx_parser::ast::{BinaryOp, Expr, ExprKind, SpannedIdentifier, Stmt, StmtKind, UnaryOp};
 use nyx_token::Symbol;
-
-fn fold_expr(expr: &Expr) -> Option<Value> {
-    match expr.kind() {
-        ExprKind::IntLiteral(value) => Some(Value::Int(*value)),
-        ExprKind::FloatLiteral(value) => Some(Value::Float(*value)),
-        ExprKind::Bool(value) => Some(Value::Bool(*value)),
-
-        ExprKind::Unary { op, expr } => {
-            let value = fold_expr(expr)?;
-
-            match (op, value) {
-                (UnaryOp::Minus, Value::Int(value)) => Some(Value::Int(-value)),
-                (UnaryOp::Minus, Value::Float(value)) => Some(Value::Float(-value)),
-                (UnaryOp::Not, Value::Bool(value)) => Some(Value::Bool(!value)),
-
-                _ => None,
-            }
-        }
-
-        ExprKind::Binary { left, op, right } => {
-            let left = fold_expr(left)?;
-            let right = fold_expr(right)?;
-
-            match (left, op, right) {
-                // Int + Int
-                (Value::Int(a), BinaryOp::Plus, Value::Int(b)) => a.checked_add(b).map(Value::Int),
-
-                (Value::Int(a), BinaryOp::Minus, Value::Int(b)) => a.checked_sub(b).map(Value::Int),
-
-                (Value::Int(a), BinaryOp::Multiply, Value::Int(b)) => {
-                    a.checked_mul(b).map(Value::Int)
-                }
-
-                (Value::Int(a), BinaryOp::Divide, Value::Int(b)) => {
-                    a.checked_div(b).map(Value::Int)
-                }
-
-                // Float + Float
-                (Value::Float(a), BinaryOp::Plus, Value::Float(b)) => Some(Value::Float(a + b)),
-
-                (Value::Float(a), BinaryOp::Minus, Value::Float(b)) => Some(Value::Float(a - b)),
-
-                (Value::Float(a), BinaryOp::Multiply, Value::Float(b)) => Some(Value::Float(a * b)),
-
-                (Value::Float(a), BinaryOp::Divide, Value::Float(b)) => Some(Value::Float(a / b)),
-
-                // Int + Float
-                (Value::Int(a), BinaryOp::Plus, Value::Float(b)) => {
-                    Some(Value::Float(a as f64 + b))
-                }
-                (Value::Int(a), BinaryOp::Minus, Value::Float(b)) => {
-                    Some(Value::Float(a as f64 - b))
-                }
-                (Value::Int(a), BinaryOp::Multiply, Value::Float(b)) => {
-                    Some(Value::Float(a as f64 * b))
-                }
-                (Value::Int(a), BinaryOp::Divide, Value::Float(b)) => {
-                    Some(Value::Float(a as f64 / b))
-                }
-
-                // Float + Int
-                (Value::Float(a), BinaryOp::Plus, Value::Int(b)) => {
-                    Some(Value::Float(a + b as f64))
-                }
-                (Value::Float(a), BinaryOp::Minus, Value::Int(b)) => {
-                    Some(Value::Float(a - b as f64))
-                }
-                (Value::Float(a), BinaryOp::Multiply, Value::Int(b)) => {
-                    Some(Value::Float(a * b as f64))
-                }
-                (Value::Float(a), BinaryOp::Divide, Value::Int(b)) => {
-                    Some(Value::Float(a / b as f64))
-                }
-                _ => None,
-            }
-        }
-
-        _ => None,
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum Value {
-    Int(i64),
-    Float(f64),
-    Bool(bool),
-    Ident(Symbol),
-}
 
 /// Compiled Nyx bytecode and its associated constant pool.
 #[derive(Debug, Default, Clone)]

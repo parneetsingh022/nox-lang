@@ -3,8 +3,7 @@ use std::fmt::{self, Write};
 use nyx_token::SymbolRegistry;
 
 use crate::{
-    ByteCode, OpCode,
-    compiler::Value,
+    ByteCode, OpCode, Value,
     opcodes::{BinaryOpCode, UnaryOpCode},
 };
 
